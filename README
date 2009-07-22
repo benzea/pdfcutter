@@ -1,0 +1,3 @@
+PDF Cutter is a small project to allow for cutting out areas of a pdf and
+building a new pdf file from this. This can be used to remove useless stuff
+from a PDF and then save paper when printing the file.
