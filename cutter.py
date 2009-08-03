@@ -40,7 +40,6 @@ class Cutter(object):
 		placement.y = ypos
 		self.page_boxes.append(placement)
 
-		# NOW DRAW THE BUGGER
 		self.cr.save()
 		
 		self.cr.rectangle(placement.x, placement.y, box.width, box.height)
