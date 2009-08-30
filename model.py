@@ -21,6 +21,9 @@ import gobject
 import gtk
 import poppler
 import thread
+from lru import LRU
+
+_PADDING = 10
 
 class Box(gobject.GObject):
 	__gtype_name__ = 'PDFCutterBox'
@@ -29,27 +32,39 @@ class Box(gobject.GObject):
 	}
 	def __init__(self):
 		gobject.GObject.__init__(self)
-		self._page = 0
-		self._x = 0
-		self._y = 0
+		self._spage = 0
+		self._sx = 0
+		self._sy = 0
 		self._width = 0
 		self._height = 0
 		self._model = None
+
+		self._dpage = 0
+		self._dx = 0
+		self._dy = 0
 		
 		# This can be true or false, ie. switches the "color" used
 		# for layout purposes
 		self.colored = False
 
-	def get_x(self):
-		return self._x
-	def set_x(self, value):
-		self._x = value
+	def get_sx(self):
+		return self._sx
+	def set_sx(self, value):
+		# Keep the source and dest value in sync to some extend
+		self._dx += value - self._sx
+		self._sx = value
 		self._emit_change()
 
-	def get_y(self):
-		return self._y
-	def set_y(self, value):
-		self._y = value
+	def get_sy(self):
+		return self._sy
+	def set_sy(self, value):
+		self._sy = value
+		self._emit_change()
+
+	def get_spage(self):
+		return self._spage
+	def set_spage(self, value):
+		self._spage = value
 		self._emit_change()
 
 	def get_width(self):
@@ -64,10 +79,22 @@ class Box(gobject.GObject):
 		self._height = value
 		self._emit_change()
 
-	def get_page(self):
-		return self._page
-	def set_page(self, value):
-		self._page = value
+	def get_dx(self):
+		return self._dx
+	def set_dx(self, value):
+		self._dx = value
+		self._emit_change()
+
+	def get_dy(self):
+		return self._dy
+	def set_dy(self, value):
+		self._dy = value
+		self._emit_change()
+
+	def get_dpage(self):
+		return self._dpage
+	def set_dpage(self, value):
+		self._dpage = value
 		self._emit_change()
 
 	def _emit_change(self):
@@ -76,24 +103,28 @@ class Box(gobject.GObject):
 		if self._model:
 			self._model.emit("box-changed", self)
 
-	x = gobject.property(type=float, getter=get_x, setter=set_x)
-	y = gobject.property(type=float, getter=get_y, setter=set_y)
+	sx = gobject.property(type=float, getter=get_sx, setter=set_sx)
+	sy = gobject.property(type=float, getter=get_sy, setter=set_sy)
+	spage = gobject.property(type=int, getter=get_spage, setter=set_spage)
 	width = gobject.property(type=float, getter=get_width, setter=set_width)
 	height = gobject.property(type=float, getter=get_height, setter=set_height)
-	page = gobject.property(type=int, getter=get_page, setter=set_page)
+
+	dx = gobject.property(type=float, getter=get_dx, setter=set_dx)
+	dy = gobject.property(type=float, getter=get_dy, setter=set_dy)
+	dpage = gobject.property(type=int, getter=get_dpage, setter=set_dpage)
 
 	def __cmp__(self, other):
-		if self.page < other.page:
+		if self.spage < other.spage:
 			return -1
-		if self.page > other.page:
+		if self.spage > other.spage:
 			return 1
-		if self.y < other.y:
+		if self.sy < other.sy:
 			return -1
-		if self.y > other.y:
+		if self.sy > other.sy:
 			return 1
-		if self.x < other.x:
+		if self.sx < other.sx:
 			return -1
-		if self.x > other.x:
+		if self.sx > other.sx:
 			return 1
 		return 0
 
@@ -114,8 +145,8 @@ class Model(gobject.GObject):
 		self.document = \
 			poppler.document_new_from_file(self.filename, None)
 		self._boxes = []
-		self._rendered_boxes = {}
-		self._rendered_pages = {}
+		self._rendered_boxes = LRU(30)
+		self._rendered_pages = LRU(5)
 		self._box_render_queue = []
 		self._page_render_queue = []
 		self._render_queue_lock = thread.allocate_lock()
@@ -124,17 +155,23 @@ class Model(gobject.GObject):
 	def get_rendered_box_or_queue (self, box, scale):
 		try:
 			# Try to retrieve a preprendered box
-			rscale, result = self._rendered_boxes[box]
+			result, rscale, page, x, y, width, height = self._rendered_boxes[box]
 
-			if rscale != scale:
+			if rscale != scale or page != box.spage or x != box.sx or \
+			   y != box.sy or width != box.width or height != box.height:
 				# Queue a render at the correct scale
-				self._queue_box_render_at_scale(self, box, scale)
-			return result
+				self._queue_box_render_at_scale(box, scale)
+
+			if page != box.spage or x != box.sx or \
+			   y != box.sy or width != box.width or height != box.height:
+				result = None
+			if result is not None:
+				return result, rscale
 		except KeyError:
 			# Nothing, there, queue the rendering
 			self._queue_box_render_at_scale(box, scale)
-			return None
-		
+		#return self._preview_box(box, scale)
+
 	def get_rendered_page_or_queue (self, page, scale):
 		try:
 			# Try to retrieve a preprendered box
@@ -157,6 +194,20 @@ class Model(gobject.GObject):
 		self._boxes.sort()
 
 	def add_box(self, box):
+		ypos = _PADDING
+		page = 0
+		for b in self._boxes:
+			if b.dpage > page:
+				page = b.dpage
+				ypos = _PADDING
+			ypos = max(ypos, b.dy + b.height)
+		width, height = self.document.get_page(0).get_size()
+		if ypos + box.height > height - _PADDING:
+			page += 1
+			ypos = _PADDING
+		box.dy = ypos
+		box.dpage = page
+
 		self._boxes.append(box)
 		box._model = self
 		self.emit("box-added", box)
@@ -168,12 +219,14 @@ class Model(gobject.GObject):
 	def _queue_box_render_at_scale(self, box, scale):
 		self._render_queue_lock.acquire()
 		for queue in self._box_render_queue:
-			if queue[0] == box:
-				if queue[1] != scale:
-					self._box_render_queue.remove(queue)
-				else:
-					self._render_queue_lock.release()
-					return
+			if queue[0] != box:
+				continue
+
+			if queue[1] != scale:
+				self._box_render_queue.remove(queue)
+			else:
+				self._render_queue_lock.release()
+				return
 					
 		self._box_render_queue.append((box, scale))
 		# Recreate thread if neccessary
@@ -219,8 +272,56 @@ class Model(gobject.GObject):
 		self.emit("box-rendered", box)
 		return False
 
+	def _preview_box(self, box, scale):
+		page_number = box.spage
+		try:
+			pimage, pscale = self._rendered_pages[page_number]
+			
+			width = box.width * scale
+			height = box.height * scale
+
+			surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(width), int(height))
+			cr = cairo.Context(surface)
+			cr.set_operator(cairo.OPERATOR_SOURCE)
+			cr.scale(1/pscale, 1/pscale)
+			cr.translate(-box.sx, -box.sy)
+			cr.scale(scale, scale)
+			cr.set_source_surface(pimage)
+			cr.paint()
+
+			return surface, scale
+		except KeyError:
+			pass
+
 	def _render_box(self):
-		pass
+		self._render_queue_lock.acquire()
+		if len(self._box_render_queue) == 0:
+			self._render_queue_lock.release()
+			return
+		data = self._box_render_queue.pop()
+		self._render_queue_lock.release()
+
+		box = data[0]
+		page_number, x, y, width, height = box.spage, box.sx, box.sy, box.width, box.height
+		scale = data[1]
+
+		page = self.document.get_page(page_number)
+		scaled_width = width * scale
+		scaled_height = height * scale
+		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(scaled_width), int(scaled_height))
+		cr = cairo.Context(surface)
+		cr.set_source_rgba(0, 0, 0, 0)
+		cr.set_operator(cairo.OPERATOR_SOURCE)
+		cr.paint()
+
+		cr.set_operator(cairo.OPERATOR_OVER)
+		cr.translate(-x, -y)
+		cr.scale(scale, scale)
+		page.render(cr)
+
+		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height)
+
+		gobject.idle_add(self._emit_box_rendered, box)
 
 	def _emit_page_rendered(self, page):
 		self.emit("page-rendered", page)
@@ -228,6 +329,9 @@ class Model(gobject.GObject):
 
 	def _render_page(self):
 		self._render_queue_lock.acquire()
+		if len(self._page_render_queue) == 0:
+			self._render_queue_lock.release()
+			return
 		data = self._page_render_queue.pop()
 		self._render_queue_lock.release()
 
@@ -240,7 +344,7 @@ class Model(gobject.GObject):
 		height *= scale
 		surface = cairo.ImageSurface(cairo.FORMAT_RGB24, int(width), int(height))
 		cr = cairo.Context(surface)
-		cr.set_source_rgb(1, 1, 1)
+		cr.set_source_rgba(1, 1, 1)
 		cr.paint()
 
 		cr.scale(scale, scale)
