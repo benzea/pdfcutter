@@ -21,6 +21,7 @@ import gobject
 import gtk
 import poppler
 import thread
+import math
 from lru import LRU
 
 _PADDING = 10
@@ -114,17 +115,17 @@ class Box(gobject.GObject):
 	dpage = gobject.property(type=int, getter=get_dpage, setter=set_dpage)
 
 	def __cmp__(self, other):
-		if self.spage < other.spage:
+		if self.dpage < other.dpage:
 			return -1
-		if self.spage > other.spage:
+		if self.dpage > other.dpage:
 			return 1
-		if self.sy < other.sy:
+		if self.dy < other.dy:
 			return -1
-		if self.sy > other.sy:
+		if self.dy > other.dy:
 			return 1
-		if self.sx < other.sx:
+		if self.dx < other.dx:
 			return -1
-		if self.sx > other.sx:
+		if self.dx > other.dx:
 			return 1
 		return 0
 
@@ -155,7 +156,9 @@ class Model(gobject.GObject):
 	def get_rendered_box_or_queue (self, box, scale):
 		try:
 			# Try to retrieve a preprendered box
-			result, rscale, page, x, y, width, height = self._rendered_boxes[box]
+			self._render_queue_lock.acquire()
+			result, rscale, page, x, y, width, height, offset_x, offset_y = self._rendered_boxes[box]
+			self._render_queue_lock.release()
 
 			if rscale != scale or page != box.spage or x != box.sx or \
 			   y != box.sy or width != box.width or height != box.height:
@@ -166,16 +169,18 @@ class Model(gobject.GObject):
 			   y != box.sy or width != box.width or height != box.height:
 				result = None
 			if result is not None:
-				return result, rscale
+				return result, rscale, offset_x, offset_y
 		except KeyError:
 			# Nothing, there, queue the rendering
+			self._render_queue_lock.release()
 			self._queue_box_render_at_scale(box, scale)
-		#return self._preview_box(box, scale)
 
 	def get_rendered_page_or_queue (self, page, scale):
 		try:
 			# Try to retrieve a preprendered box
+			self._render_queue_lock.acquire()
 			result, rscale = self._rendered_pages[page]
+			self._render_queue_lock.release()
 
 			if rscale != scale:
 				# Queue a render at the correct scale
@@ -183,8 +188,27 @@ class Model(gobject.GObject):
 			return result, rscale
 		except KeyError:
 			# Nothing, there, queue the rendering
+			self._render_queue_lock.release()
 			self._queue_page_render_at_scale(page, scale)
 			return None
+
+	def emit_pdf(self, filename):
+		self.sort_boxes()
+		width, height = self.document.get_page(0).get_size()
+		surface = cairo.PDFSurface(filename, width, height)
+		cr = cairo.Context(surface)
+		page = 0
+		for box in self.iter_boxes():
+			while box.dpage > page:
+				page += 1
+				cr.show_page()
+			cr.save()
+			cr.translate(+box.dx, +box.dy)
+			cr.rectangle(0, 0, box.width, box.height)
+			cr.clip()
+			cr.translate(-box.sx, -box.sy)
+			self.document.get_page(box.spage).render_for_printing(cr)
+			cr.restore()
 
 	def iter_boxes(self):
 		for box in self._boxes:
@@ -196,6 +220,7 @@ class Model(gobject.GObject):
 	def add_box(self, box):
 		ypos = _PADDING
 		page = 0
+		self._boxes.sort()
 		for b in self._boxes:
 			if b.dpage > page:
 				page = b.dpage
@@ -272,27 +297,6 @@ class Model(gobject.GObject):
 		self.emit("box-rendered", box)
 		return False
 
-	def _preview_box(self, box, scale):
-		page_number = box.spage
-		try:
-			pimage, pscale = self._rendered_pages[page_number]
-			
-			width = box.width * scale
-			height = box.height * scale
-
-			surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(width), int(height))
-			cr = cairo.Context(surface)
-			cr.set_operator(cairo.OPERATOR_SOURCE)
-			cr.scale(1/pscale, 1/pscale)
-			cr.translate(-box.sx, -box.sy)
-			cr.scale(scale, scale)
-			cr.set_source_surface(pimage)
-			cr.paint()
-
-			return surface, scale
-		except KeyError:
-			pass
-
 	def _render_box(self):
 		self._render_queue_lock.acquire()
 		if len(self._box_render_queue) == 0:
@@ -306,20 +310,24 @@ class Model(gobject.GObject):
 		scale = data[1]
 
 		page = self.document.get_page(page_number)
-		scaled_width = width * scale
-		scaled_height = height * scale
-		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(scaled_width), int(scaled_height))
+		scaled_width = width + 1
+		scaled_height = height + 1
+		scaled_width = scaled_width * scale
+		scaled_height = scaled_height * scale
+		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(math.ceil(scaled_width)), int(math.ceil(scaled_height)))
 		cr = cairo.Context(surface)
 		cr.set_source_rgba(0, 0, 0, 0)
 		cr.set_operator(cairo.OPERATOR_SOURCE)
 		cr.paint()
 
 		cr.set_operator(cairo.OPERATOR_OVER)
-		cr.translate(-x, -y)
+		cr.translate(-math.ceil(x), -math.ceil(y))
 		cr.scale(scale, scale)
 		page.render(cr)
 
-		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height)
+		self._render_queue_lock.acquire()
+		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height, x - math.ceil(x), y - math.ceil(y))
+		self._render_queue_lock.release()
 
 		gobject.idle_add(self._emit_box_rendered, box)
 
@@ -350,7 +358,9 @@ class Model(gobject.GObject):
 		cr.scale(scale, scale)
 		page.render(cr)
 
+		self._render_queue_lock.acquire()
 		self._rendered_pages[page_number] = (surface, scale)
+		self._render_queue_lock.release()
 
 		gobject.idle_add(self._emit_page_rendered, page_number)
 

@@ -156,6 +156,11 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		pass
 
 	def do_paint(self, cr, bounds, scale):
+		if ( bounds.x1 > self.x + self.width + 2 or \
+		     bounds.y1 > self.y + self.height + 2 ) or \
+		   ( bounds.x2 < self.x - 2 or bounds.y2 < self.y - 2 ):
+			return
+
 		lw = _LINE_WIDTH
 		cr.set_line_width(lw)
 		cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)

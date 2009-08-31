@@ -121,6 +121,11 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		pass
 
 	def do_paint(self, cr, bounds, scale):
+		if ( bounds.x1 > self.x + self.width + 2 or \
+		     bounds.y1 > self.y + self.height + 2 ) or \
+		   ( bounds.x2 < self.x - 2 or bounds.y2 < self.y - 2 ):
+			return
+
 		lw = _LINE_WIDTH
 		cr.set_line_width(lw)
 		cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)
@@ -150,10 +155,13 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 		image = result[0]
 		iscale = result[1]
-		cr.translate(self.x, self.y)
+		offset_x = result[2]
+		offset_y = result[3]
+		cr.translate(self.x - offset_x, self.y - offset_y)
 		cr.scale(1 / iscale, 1 / iscale)
 		cr.set_source_surface(image)
-		cr.paint()
+		cr.rectangle(offset_x, offset_y, self._box.width, self._box.height)
+		cr.fill()
 
 		cr.restore()
 
@@ -233,7 +241,7 @@ class BuildView(goocanvas.Canvas):
 			while box.dpage + 1 > len(self._pages):
 				self._add_page()
 			self._boxes[box] = Box(self, box, parent=self._root)
-	
+
 	def _add_page(self):
 		y = _PADDING
 		x = _PADDING
@@ -263,7 +271,7 @@ class BuildView(goocanvas.Canvas):
 			self._add_page()
 		while pages < len(self._pages):
 			self._remove_page()
-	
+
 	def get_model(self):
 		return self._model
 
@@ -285,6 +293,7 @@ class BuildView(goocanvas.Canvas):
 		self._boxes[box] = Box(self, box, parent=self._root)
 
 	def _box_removed_cb(self, model, box):
+		self._update_pages()
 		dbox = self._boxes.pop(box)
 		dbox.remove()
 

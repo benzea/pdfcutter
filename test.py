@@ -6,15 +6,19 @@ import poppler
 import model
 import pdfview
 import goocanvas
+import sys
 from pdfview import PDFView
 from buildview import BuildView
+
+def clicked_cb(button):
+	mod.emit_pdf("/tmp/test.pdf")
 
 gtk.gdk.threads_init()
 
 gtk.gdk.threads_enter()
 win = gtk.Window(gtk.WINDOW_TOPLEVEL)
 
-mod = model.Model("file:///home/benjamin/Desktop/presentacion_educativa_caf_fondo-2-en.pdf")
+mod = model.Model(sys.argv[1])
 
 box = model.Box()
 box.width = 100
@@ -41,7 +45,12 @@ scroll.add(canvas)
 
 hbox.add(scroll)
 
-win.add(hbox)
+vbox = gtk.VBox()
+button = gtk.Button("Blub")
+button.connect("clicked", clicked_cb)
+vbox.pack_start(button, expand=False)
+vbox.add(hbox)
+win.add(vbox)
 win.show_all()
 
 
