@@ -24,15 +24,14 @@ import os
 import time
 import sys
 
-from view_widget import ViewWidget
-from model import Model, Box
+from pdfview import PDFView
+from buildview import BuildView
+from model import Model
 from cutter import Cutter
 
 
-zoom_steps = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
-
 class MainWindow(object):
-	
+
 	def __init__(self) :
 		self._glade = gtk.glade.XML(os.path.join('./main_window.glade'))
 		
@@ -40,49 +39,102 @@ class MainWindow(object):
 		self._glade.signal_autoconnect(self)
 		self._window.maximize()
 
-		scrolled_window = self._glade.get_widget("view_window")
-		self._model = Model("file:///home/benjamin/Desktop/presentacion_educativa_caf_fondo-2-en.pdf")
-		
-		self.view = ViewWidget(self._model)
-		scrolled_window.add(self.view)
+		scrolled_window = self._glade.get_widget("pdf_view_scroll")
+		self.pdf_view = PDFView()
+		scrolled_window.add(self.pdf_view)
 
-		self.view.props.zoom = 1.0
+		scrolled_window = self._glade.get_widget("build_view_scroll")
+		self.build_view = BuildView()
+		scrolled_window.add(self.build_view)
 		
 		# So the buttons are insensitive
 		self.update_ui()
 		self._window.show_all()
 
 	def update_ui(self):
-		pages = self._model.document.get_n_pages()
-		spin = self._glade.get_widget("page_spin")
-		spin.set_range(1, pages)
+		pass
 
-	def on_page_spin_value_changed(self, spinbutton):
-		self.view.props.page = spinbutton.get_value_as_int() - 1
+	def export_pdf(self, *args):
+		if self._model is None:
+			return
 
-	def on_zoom_out_clicked(self, button):
-		cur_zoom = self.view.props.zoom
-		try:
-			i = zoom_steps.index(cur_zoom)
-			i -= 1
-			if i >= 0:
-				self.view.props.zoom = zoom_steps[i]
-		except:
-			self.view.props.zoom = 1.0
+		fc = gtk.FileChooserDialog()
+		pdf_filter = gtk.FileFilter()
+		pdf_filter.add_pattern('*.pdf')
+		pdf_filter.set_name('PDF File')
+		fc.add_button('gtk-cancel', gtk.RESPONSE_CANCEL)
+		fc.add_button('gtk-save', gtk.RESPONSE_OK)
+		fc.add_filter(pdf_filter)
+		fc.set_action(gtk.FILE_CHOOSER_ACTION_SAVE)
+		result = fc.run()
+		if result == gtk.RESPONSE_OK:
+			filename = fc.get_filename()
+			self._model.emit_pdf(filename)
+		fc.destroy()
+
+	def save_file_as(self, *args):
+		if self._model is None:
+			return
+
+		fc = gtk.FileChooserDialog()
+		bcut_filter = gtk.FileFilter()
+		bcut_filter.add_pattern('*.bcut')
+		bcut_filter.set_name('Britzel Cutter File')
+		fc.add_button('gtk-cancel', gtk.RESPONSE_CANCEL)
+		fc.add_button('gtk-save', gtk.RESPONSE_OK)
+		fc.add_filter(bcut_filter)
+		fc.set_action(gtk.FILE_CHOOSER_ACTION_SAVE)
+		result = fc.run()
+		if result == gtk.RESPONSE_OK:
+			filename = fc.get_filename()
+			self._model.save_to_file(filename)
+		fc.destroy()
+
+	def save_file(self, *args):
+		if self._model is None:
+			return
+		filename = self._model.loadfile
+		if filename is None:
+			return self.save_file_as()
+		self._model.save_to_file(filename)
+
+	def new_file(self, *args):
+		fc = gtk.FileChooserDialog()
+		fc.add_button('gtk-cancel', gtk.RESPONSE_CANCEL)
+		fc.add_button('gtk-open', gtk.RESPONSE_OK)
+		pdf_filter = gtk.FileFilter()
+		pdf_filter.add_pattern('*.pdf')
+		pdf_filter.set_name('PDF File')
+		fc.add_filter(pdf_filter)
+		result = fc.run()
+		if result == gtk.RESPONSE_OK:
+			uri = fc.get_uri()
+			model = Model(pdffile=uri)
+			self.pdf_view.props.model = model
+			self.build_view.props.model = model
+			self._model = model
+		fc.destroy()
+	
+	def open_file(self, *args):
+		fc = gtk.FileChooserDialog()
+		bcut_filter = gtk.FileFilter()
+		bcut_filter.add_pattern('*.bcut')
+		bcut_filter.set_name('Britzel Cutter File')
+		fc.add_button('gtk-cancel', gtk.RESPONSE_CANCEL)
+		fc.add_button('gtk-open', gtk.RESPONSE_OK)
+		fc.add_filter(bcut_filter)
+		result = fc.run()
+		if result == gtk.RESPONSE_OK:
+			filename = fc.get_filename()
+			model = Model(loadfile=filename)
+			self.pdf_view.props.model = model
+			self.build_view.props.model = model
+			self._model = model
+		fc.destroy()
 	
 	def on_build_pdf_clicked(self, button):
-		cutter = Cutter(self._model)
-		cutter.write_pdf("/tmp/test.pdf")
-
-	def on_zoom_in_clicked(self, button):
-		cur_zoom = self.view.props.zoom
-		try:
-			i = zoom_steps.index(cur_zoom)
-			i += 1
-			if i < len(zoom_steps):
-				self.view.props.zoom = zoom_steps[i]
-		except:
-			self.view.props.zoom = 1.0
+		if self._model:
+			self._model.emit_pdf("/tmp/test.pdf")
 
 	def quit_application(self, *args):
 		gtk.main_quit()

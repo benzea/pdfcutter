@@ -139,12 +139,11 @@ class Model(gobject.GObject):
 		'box-rendered': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object]))
 	}
 
-	def __init__(self, filename):
+	def __init__(self, pdffile=None, loadfile=None):
 		gobject.GObject.__init__(self)
 
-		self.filename = filename
-		self.document = \
-			poppler.document_new_from_file(self.filename, None)
+		self.pdffile = pdffile
+		self.loadfile = loadfile
 		self._boxes = []
 		self._rendered_boxes = LRU(30)
 		self._rendered_pages = LRU(5)
@@ -152,6 +151,12 @@ class Model(gobject.GObject):
 		self._page_render_queue = []
 		self._render_queue_lock = thread.allocate_lock()
 		self._render_thread_running = False
+
+		if loadfile:
+			self._load_from_file()
+
+		self.document = \
+			poppler.document_new_from_file(self.pdffile, None)
 
 	def get_rendered_box_or_queue (self, box, scale):
 		try:
@@ -240,6 +245,32 @@ class Model(gobject.GObject):
 	def remove_box(self, box):
 		self._boxes.remove(box)
 		self.emit("box-removed", box)
+
+	def save_to_file(self, filename):
+		f = open(filename, 'w')
+		f.write('PdfCutter File\n')
+		f.write(self.pdffile)
+		f.write('\n')
+		for b in self._boxes:
+			f.write("%f %f %f %f %f %f %i %i\n" % (b.sx, b.sy, b.width, b.height, b.dx, b.dy, b.spage, b.dpage))
+
+	def _load_from_file(self):
+		f = open(self.loadfile, "r")
+		assert(f.readline() == 'PdfCutter File\n')
+		self.pdffile = f.readline()[:-1]
+		for line in f.readlines():
+			data = line.split()
+			b = Box()
+			b.sx = float(data[0])
+			b.sy = float(data[1])
+			b.width = float(data[2])
+			b.height = float(data[3])
+			b.dx = float(data[4])
+			b.dy = float(data[5])
+			b.spage = int(data[6])
+			b.dpage = float(data[7])
+			b._model = self
+			self._boxes.append(b)
 
 	def _queue_box_render_at_scale(self, box, scale):
 		self._render_queue_lock.acquire()

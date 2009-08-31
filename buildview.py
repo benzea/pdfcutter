@@ -228,9 +228,9 @@ class BuildView(goocanvas.Canvas):
 		self._box_removed_id = self._model.connect("box-removed", self._box_removed_cb)
 
 		for page in self._pages:
-			page.remove
-		for box, dbox in self._boxes:
-			dbox.remove
+			page.remove()
+		for box, dbox in self._boxes.iteritems():
+			dbox.remove()
 		self._pages = []
 		self._boxes = {}
 
