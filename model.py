@@ -17,6 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import cairo
+import pango
+import pangocairo
 import gobject
 import gtk
 import poppler
@@ -24,7 +26,9 @@ import thread
 import math
 from lru import LRU
 
-_PADDING = 10
+PADDING = 10*72/25.4
+
+HEADER_FONT = 'Bitstream Vera Serif 10'
 
 class Box(gobject.GObject):
 	__gtype_name__ = 'PDFCutterBox'
@@ -136,7 +140,8 @@ class Model(gobject.GObject):
 		'box-added': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
 		'box-removed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
 		'page-rendered': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
-		'box-rendered': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object]))
+		'box-rendered': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
+		'header-text-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ())
 	}
 
 	def __init__(self, pdffile=None, loadfile=None):
@@ -144,6 +149,7 @@ class Model(gobject.GObject):
 
 		self.pdffile = pdffile
 		self.loadfile = loadfile
+		self.header_text = "HEADER TEXT"
 		self._boxes = []
 		self._rendered_boxes = LRU(30)
 		self._rendered_pages = LRU(5)
@@ -157,6 +163,10 @@ class Model(gobject.GObject):
 
 		self.document = \
 			poppler.document_new_from_file(self.pdffile, None)
+
+	def set_header_text(self, value):
+		self.header_text = value
+		self.emit('header-text-changed')
 
 	def get_rendered_box_or_queue (self, box, scale):
 		try:
@@ -202,11 +212,26 @@ class Model(gobject.GObject):
 		width, height = self.document.get_page(0).get_size()
 		surface = cairo.PDFSurface(filename, width, height)
 		cr = cairo.Context(surface)
+		cr = pangocairo.CairoContext(cr)
+		font = pango.FontDescription(HEADER_FONT)
+		font.set_weight(pango.WEIGHT_BOLD)
 		page = 0
+
+		layout = cr.create_layout()
+		layout.set_text(self.header_text)
+		layout.set_font_description(font)
+		cr.move_to(PADDING, PADDING)
+		cr.show_layout(layout)
+
 		for box in self.iter_boxes():
 			while box.dpage > page:
 				page += 1
 				cr.show_page()
+				layout = cr.create_layout()
+				layout.set_text(self.header_text)
+				layout.set_font_description(font)
+				cr.move_to(PADDING, PADDING - 2)
+				cr.show_layout(layout)
 			cr.save()
 			cr.translate(+box.dx, +box.dy)
 			cr.rectangle(0, 0, box.width, box.height)
@@ -223,18 +248,22 @@ class Model(gobject.GObject):
 		self._boxes.sort()
 
 	def add_box(self, box):
-		ypos = _PADDING
+		ypos = PADDING
 		page = 0
 		self._boxes.sort()
 		for b in self._boxes:
+			if b.dx > box.dx + box.width or \
+			   b.dx + b.width < box.dx:
+				continue
+			
 			if b.dpage > page:
 				page = b.dpage
-				ypos = _PADDING
+				ypos = PADDING
 			ypos = max(ypos, b.dy + b.height)
 		width, height = self.document.get_page(0).get_size()
-		if ypos + box.height > height - _PADDING:
+		if ypos + box.height > height - PADDING:
 			page += 1
-			ypos = _PADDING
+			ypos = PADDING
 		box.dy = ypos
 		box.dpage = page
 
@@ -247,9 +276,12 @@ class Model(gobject.GObject):
 		self.emit("box-removed", box)
 
 	def save_to_file(self, filename):
+		self.loadfile = filename
 		f = open(filename, 'w')
 		f.write('PdfCutter File\n')
 		f.write(self.pdffile)
+		f.write('\n')
+		f.write(self.header_text)
 		f.write('\n')
 		for b in self._boxes:
 			f.write("%f %f %f %f %f %f %i %i\n" % (b.sx, b.sy, b.width, b.height, b.dx, b.dy, b.spage, b.dpage))
@@ -258,6 +290,7 @@ class Model(gobject.GObject):
 		f = open(self.loadfile, "r")
 		assert(f.readline() == 'PdfCutter File\n')
 		self.pdffile = f.readline()[:-1]
+		self.header_text = f.readline()[:-1]
 		for line in f.readlines():
 			data = line.split()
 			b = Box()

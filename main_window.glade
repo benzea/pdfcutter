@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Mon Aug 31 21:08:06 2009 -->
+<!--Generated with glade3 3.4.5 on Tue Sep  1 00:36:48 2009 -->
 <glade-interface>
   <widget class="GtkWindow" id="pdfcutter">
     <signal name="delete_event" handler="quit_application"/>
@@ -211,6 +211,22 @@
                         <property name="visible">True</property>
                         <property name="label" translatable="yes">Export</property>
                         <signal name="clicked" handler="export_pdf"/>
+                      </widget>
+                      <packing>
+                        <property name="homogeneous">True</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <widget class="GtkToolItem" id="toolbutton3">
+                        <property name="visible">True</property>
+                        <child>
+                          <widget class="GtkEntry" id="header_entry">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="invisible_char">•</property>
+                            <signal name="activate" handler="header_changed_cb"/>
+                          </widget>
+                        </child>
                       </widget>
                       <packing>
                         <property name="homogeneous">True</property>

@@ -34,6 +34,7 @@ class MainWindow(object):
 
 	def __init__(self) :
 		self._glade = gtk.glade.XML(os.path.join('./main_window.glade'))
+		self._model = None
 		
 		self._window = self._glade.get_widget("pdfcutter")
 		self._glade.signal_autoconnect(self)
@@ -52,7 +53,14 @@ class MainWindow(object):
 		self._window.show_all()
 
 	def update_ui(self):
-		pass
+		if self._model:
+			header_entry = self._glade.get_widget('header_entry')
+			header_entry.set_text(self._model.header_text)
+
+	def header_changed_cb(self, *args):
+		if self._model:
+			header_entry = self._glade.get_widget('header_entry')
+			self._model.set_header_text(header_entry.get_text())
 
 	def export_pdf(self, *args):
 		if self._model is None:
@@ -113,6 +121,7 @@ class MainWindow(object):
 			self.pdf_view.props.model = model
 			self.build_view.props.model = model
 			self._model = model
+			self.update_ui()
 		fc.destroy()
 	
 	def open_file(self, *args):
@@ -130,6 +139,7 @@ class MainWindow(object):
 			self.pdf_view.props.model = model
 			self.build_view.props.model = model
 			self._model = model
+			self.update_ui()
 		fc.destroy()
 	
 	def on_build_pdf_clicked(self, button):

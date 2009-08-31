@@ -18,10 +18,13 @@
 
 
 import cairo
+import pango
+import pangocairo
 import gtk
 import goocanvas
 import gobject
 import model
+import math
 
 _BOX = 1
 _EDGE_TOP = 2
@@ -78,6 +81,8 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			self._drag_active = True
 			self._mouse_x = event.x
 			self._mouse_y = event.y
+			self._box_start_x = self._box.dx
+			self._box_start_y = self._box.dy
 
 	def do_button_release_event(self, target, event):
 		if event.button == 1 and self._drag_active:
@@ -108,6 +113,14 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 		self._box.dx = max(0, min(new_x, max_x - self._box.width))
 		self._box.dy = max(0, min(new_y, max_y - self._box.height))
+
+		if event.state & gtk.gdk.SHIFT_MASK:
+			move_x = abs(self._box.dx - self._box_start_x)
+			move_y = abs(self._box.dy - self._box_start_y)
+			if move_x > move_y:
+				self._box.dy = self._box_start_y
+			else:
+				self._box.dx = self._box_start_x
 
 		dx -= new_x - self._box.dx
 		dy -= new_y - self._box.dy
@@ -200,7 +213,32 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 		cr.rectangle(self.x-1, self.y-1, self.width+2, self.height+2)
 		cr.rectangle(self.x, self.y, self.width, self.height)
 		cr.fill()
+		cr.restore()
 
+		cr.save()
+		cr.translate(self.x, self.y)
+		for x in xrange(1, 21):
+			cr.move_to((int(x / 2.54 * 72 * scale) + 0.5) / scale, 0)
+			cr.line_to((int(x / 2.54 * 72 * scale) + 0.5) / scale, self.height)
+			cr.set_line_width(1 / scale)
+			cr.set_dash([4 / scale, 4 / scale])
+		cr.set_source_rgba(0, 0, 0, 0.6)
+		cr.stroke()
+		cr.restore()
+
+
+		cr.save()
+		cr = pangocairo.CairoContext(cr)
+		font = pango.FontDescription(model.HEADER_FONT)
+		font.set_weight(pango.WEIGHT_BOLD)
+		layout = cr.create_layout()
+		layout.set_text(self._model.header_text)
+		layout.set_font_description(font)
+		cr.translate(self.x, self.y)
+		cr.move_to(model.PADDING, model.PADDING - 2)
+		cr.show_layout(layout)
+		cr.show_page()
+		cr.restore()
 
 
 class BuildView(goocanvas.Canvas):
@@ -220,12 +258,14 @@ class BuildView(goocanvas.Canvas):
 			self._model.disconnect(self._box_changed_id)
 			self._model.disconnect(self._box_added_id)
 			self._model.disconnect(self._box_removed_id)
+			self._model.disconnect(self._header_text_changed_id)
 
 		self._model = model
 		self._page_rendered_id = self._model.connect("box-rendered", self._box_rendered_cb)
 		self._box_changed_id = self._model.connect("box-changed", self._box_changed_cb)
 		self._box_added_id = self._model.connect("box-added", self._box_added_cb)
 		self._box_removed_id = self._model.connect("box-removed", self._box_removed_cb)
+		self._header_text_changed_id = self._model.connect("header-text-changed", self._header_text_changed_cb)
 
 		for page in self._pages:
 			page.remove()
@@ -248,20 +288,20 @@ class BuildView(goocanvas.Canvas):
 
 		pwidth, pheight = self._model.document.get_page(0).get_size()
 
-		y += (pheight + _PADDING) * len(self._pages)
+		y += math.ceil(pheight + _PADDING) * len(self._pages)
 
 		page = Page(self._model, len(self._pages), x, y, fill_color="black", parent=self._root)
 		page.lower(None)
 		self._pages.append(page)
 
-		self.set_bounds(0, 0, pwidth + 2*_PADDING, (pheight + _PADDING) * len(self._pages) + _PADDING * 3)
+		self.set_bounds(0, 0, pwidth + 2*_PADDING, math.ceil(pheight + _PADDING) * len(self._pages) + _PADDING * 3)
 
 	def _remove_page(self):
 		self._pages.pop(len(self._pages) - 1).remove()
 
 		pwidth, pheight = self._model.document.get_page(0).get_size()
 
-		self.set_bounds(0, 0, pwidth + 2*_PADDING, (pheight + _PADDING) * len(self._pages) + _PADDING * 3)
+		self.set_bounds(0, 0, pwidth + 2*_PADDING, math.ceil(pheight + _PADDING) * len(self._pages) + _PADDING * 3)
 
 	def _update_pages(self, min_pages=1):
 		pages = min_pages
@@ -283,6 +323,9 @@ class BuildView(goocanvas.Canvas):
 		except KeyError:
 			# Just ignore if it the box disappeared already
 			pass
+
+	def _header_text_changed_cb(self, model):
+		self.queue_draw()
 
 	def _box_changed_cb(self, model, box):
 		self._update_pages()

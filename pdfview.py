@@ -22,6 +22,7 @@ import gtk
 import goocanvas
 import gobject
 import model
+import math
 
 _BOX = 1
 _EDGE_TOP = 2
@@ -223,6 +224,7 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 
 		image = result[0]
 		iscale = result[1]
+		print self.x, self.y
 		cr.translate(self.x, self.y)
 		cr.scale(1 / iscale, 1 / iscale)
 		cr.set_source_surface(image)
@@ -324,9 +326,9 @@ class PDFView(goocanvas.Canvas):
 			self._pages.append(page)
 
 			y += PADDING
-			y += page.height
+			y += math.ceil(page.height)
 			width = max(width, page.width)
-			height += page.height + PADDING
+			height = math.ceil(page.y + page.height + PADDING)
 		width = width + 2*PADDING
 
 		self.set_bounds(0, 0, width, height)
