@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Tue Sep  1 00:36:48 2009 -->
+<!--Generated with glade3 3.4.5 on Tue Sep  1 14:34:05 2009 -->
 <glade-interface>
   <widget class="GtkWindow" id="pdfcutter">
     <signal name="delete_event" handler="quit_application"/>
@@ -227,6 +227,26 @@
                             <signal name="activate" handler="header_changed_cb"/>
                           </widget>
                         </child>
+                      </widget>
+                      <packing>
+                        <property name="homogeneous">True</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <widget class="GtkToggleToolButton" id="outlines_toggle">
+                        <property name="visible">True</property>
+                        <property name="label" translatable="yes">Outlines</property>
+                        <signal name="toggled" handler="outlines_toggled"/>
+                      </widget>
+                      <packing>
+                        <property name="homogeneous">True</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <widget class="GtkToggleToolButton" id="grid_toggle">
+                        <property name="visible">True</property>
+                        <property name="label" translatable="yes">Grid</property>
+                        <signal name="toggled" handler="grid_toggled"/>
                       </widget>
                       <packing>
                         <property name="homogeneous">True</property>

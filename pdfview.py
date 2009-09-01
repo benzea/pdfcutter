@@ -224,7 +224,6 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 
 		image = result[0]
 		iscale = result[1]
-		print self.x, self.y
 		cr.translate(self.x, self.y)
 		cr.scale(1 / iscale, 1 / iscale)
 		cr.set_source_surface(image)

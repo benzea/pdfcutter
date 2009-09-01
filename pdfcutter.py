@@ -57,6 +57,20 @@ class MainWindow(object):
 			header_entry = self._glade.get_widget('header_entry')
 			header_entry.set_text(self._model.header_text)
 
+			outlines_toggle = self._glade.get_widget('outlines_toggle')
+			outlines_toggle.set_active(self.build_view.outlines)
+
+			grid_toggle = self._glade.get_widget('grid_toggle')
+			grid_toggle.set_active(self.build_view.grid)
+			
+	def outlines_toggled(self, *args):
+		outlines_toggle = self._glade.get_widget('outlines_toggle')
+		self.build_view.outlines = outlines_toggle.get_active()
+
+	def grid_toggled(self, *args):
+		grid_toggle = self._glade.get_widget('grid_toggle')
+		self.build_view.grid = grid_toggle.get_active()
+
 	def header_changed_cb(self, *args):
 		if self._model:
 			header_entry = self._glade.get_widget('header_entry')

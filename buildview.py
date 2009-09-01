@@ -114,6 +114,22 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		self._box.dx = max(0, min(new_x, max_x - self._box.width))
 		self._box.dy = max(0, min(new_y, max_y - self._box.height))
 
+		if event.state & gtk.gdk.CONTROL_MASK:
+			move_x = self._box.dx - self._box_start_x
+			move_y = self._box.dy - self._box_start_y
+
+			move_x = move_x / 72.0 * 25.4
+			move_y = move_y / 72.0 * 25.4
+
+			move_x = round(move_x / 2.5) * 2.5
+			move_y = round(move_y / 2.5) * 2.5
+
+			move_x = move_x * 72.0 / 25.4
+			move_y = move_y * 72.0 / 25.4
+
+			self._box.dx = self._box_start_x + move_x
+			self._box.dy = self._box_start_y + move_y
+
 		if event.state & gtk.gdk.SHIFT_MASK:
 			move_x = abs(self._box.dx - self._box_start_x)
 			move_y = abs(self._box.dy - self._box_start_y)
@@ -139,11 +155,14 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		   ( bounds.x2 < self.x - 2 or bounds.y2 < self.y - 2 ):
 			return
 
-		lw = _LINE_WIDTH
-		cr.set_line_width(lw)
-		cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)
-		cr.set_source_rgba(1.0, 0, 0, 0.8)
-		cr.stroke()
+		if self.get_canvas().outlines:
+			cr.save()
+			lw = _LINE_WIDTH
+			cr.set_line_width(lw)
+			cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)
+			cr.set_source_rgba(1.0, 0, 0, 0.8)
+			cr.stroke()
+			cr.restore()
 
 		cr.save()
 
@@ -215,16 +234,17 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 		cr.fill()
 		cr.restore()
 
-		cr.save()
-		cr.translate(self.x, self.y)
-		for x in xrange(1, 21):
-			cr.move_to((int(x / 2.54 * 72 * scale) + 0.5) / scale, 0)
-			cr.line_to((int(x / 2.54 * 72 * scale) + 0.5) / scale, self.height)
-			cr.set_line_width(1 / scale)
-			cr.set_dash([4 / scale, 4 / scale])
-		cr.set_source_rgba(0, 0, 0, 0.6)
-		cr.stroke()
-		cr.restore()
+		if self.get_canvas().grid:
+			cr.save()
+			cr.translate(self.x, self.y)
+			for x in xrange(1, int(self.width / 72 * 2.54) + 1):
+				cr.move_to((int(x / 2.54 * 72 * scale) + 0.5) / scale, 0)
+				cr.line_to((int(x / 2.54 * 72 * scale) + 0.5) / scale, self.height)
+				cr.set_line_width(1 / scale)
+				cr.set_dash([4 / scale, 4 / scale])
+			cr.set_source_rgba(0, 0, 0, 0.6)
+			cr.stroke()
+			cr.restore()
 
 
 		cr.save()
@@ -251,6 +271,8 @@ class BuildView(goocanvas.Canvas):
 		self._root = self.get_root_item()
 		self._pages = []
 		self._boxes = {}
+		self._grid = True
+		self._outlines = True
 	
 	def set_model(self, model):
 		if self._model:
@@ -315,7 +337,23 @@ class BuildView(goocanvas.Canvas):
 	def get_model(self):
 		return self._model
 
+	def set_grid(self, value):
+		self._grid = value
+		self.queue_draw()
+
+	def get_grid(self):
+		return self._grid
+
+	def set_outlines(self, value):
+		self._outlines = value
+		self.queue_draw()
+
+	def get_outlines(self):
+		return self._outlines
+
 	model = gobject.property(type=object, setter=set_model, getter=get_model)
+	grid = gobject.property(type=bool, default=True, setter=set_grid, getter=get_grid)
+	outlines = gobject.property(type=bool, default=True, setter=set_outlines, getter=get_outlines)
 
 	def _box_rendered_cb(self, model, box):
 		try:
