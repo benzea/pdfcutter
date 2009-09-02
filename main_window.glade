@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Wed Sep  2 21:52:17 2009 -->
+<!--Generated with glade3 3.4.5 on Wed Sep  2 22:10:41 2009 -->
 <glade-interface>
   <widget class="GtkWindow" id="pdfcutter">
     <signal name="delete_event" handler="quit_application"/>
@@ -139,6 +139,7 @@
                         <property name="label" translatable="yes">gtk-about</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
+                        <signal name="activate" handler="show_about_dialog"/>
                       </widget>
                     </child>
                   </widget>
