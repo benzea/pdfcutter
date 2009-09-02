@@ -294,7 +294,15 @@ class PDFView(goocanvas.Canvas):
 		self._root = self.get_root_item()
 		self._pages = []
 		self._boxes = {}
-	
+		self.connect("set-scroll-adjustments", self._set_scroll_adjustments_cb)
+		self._hadjustment = None
+		self._vadjustment = None
+		self.props.redraw_when_scrolled = True
+
+	def _set_scroll_adjustments_cb(self, canvas, hadjustment, vadjustment):
+		self._hadjustment = hadjustment
+		self._vadjustment = vadjustment
+
 	def set_model(self, model):
 		if self._model:
 			self._model.disconnect(self._page_rendered_id)
@@ -353,4 +361,53 @@ class PDFView(goocanvas.Canvas):
 	def _box_removed_cb(self, model, box):
 		dbox = self._boxes.pop(box)
 		dbox.remove()
+
+	def do_scroll_event(self, event):
+		if not event.state & gtk.gdk.CONTROL_MASK:
+			return False
+
+		if event.direction == gtk.gdk.SCROLL_UP:
+			zoom = 1.25
+		elif event.direction == gtk.gdk.SCROLL_DOWN:
+			zoom = 0.8
+		else:
+			return False
+
+		if self._hadjustment and self._vadjustment:
+			# We cannot use x and y because those are wrong if a lot of
+			# events come in fast
+			mouse_x, mouse_y = event.x_root, event.y_root
+			origin_x, origin_y = self.window.get_origin()
+			mouse_x -= origin_x
+			mouse_y -= origin_y
+			mouse_x, mouse_y = self.convert_from_pixels(mouse_x, mouse_y)
+
+			top_x, top_y = \
+			    self.convert_from_pixels(self._hadjustment.get_value(),
+			                             self._vadjustment.get_value())
+			x = top_x + mouse_x
+			y = top_y + mouse_y
+
+		scale = self.get_scale()
+		
+		if scale >= 4 and zoom > 1:
+			return True
+		if scale <= 0.2 and zoom < 1:
+			return True
+		
+		scale *= zoom
+		self.set_scale(scale)
+
+		if self._hadjustment and self._vadjustment:
+			mouse_x /= zoom
+			mouse_y /= zoom
+
+			top_x = x - mouse_x
+			top_y = y - mouse_y
+
+			self.scroll_to(top_x, top_y)
+
+		return True
+
+
 

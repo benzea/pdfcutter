@@ -17,6 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import cairo
+import sys
 import pango
 import pangocairo
 import gobject
@@ -395,15 +396,20 @@ class Model(gobject.GObject):
 		scaled_height = height + 1
 		scaled_width = scaled_width * scale
 		scaled_height = scaled_height * scale
-		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(math.ceil(scaled_width)), int(math.ceil(scaled_height)))
+		try:
+			surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(math.ceil(scaled_width)), int(math.ceil(scaled_height)))
+		except MemoryError:
+			sys.stderr.write("Cannot render box at this zoom, not enough memory!\n")
+			return
+			pass
 		cr = cairo.Context(surface)
 		cr.set_source_rgba(0, 0, 0, 0)
 		cr.set_operator(cairo.OPERATOR_SOURCE)
 		cr.paint()
 
 		cr.set_operator(cairo.OPERATOR_OVER)
-		cr.translate(-math.ceil(x), -math.ceil(y))
 		cr.scale(scale, scale)
+		cr.translate(-math.ceil(x), -math.ceil(y))
 		self._document_lock.acquire()
 		page.render(cr)
 		self._document_lock.release()
@@ -433,7 +439,12 @@ class Model(gobject.GObject):
 		width, height = page.get_size()
 		width *= scale
 		height *= scale
-		surface = cairo.ImageSurface(cairo.FORMAT_RGB24, int(width), int(height))
+		try:
+			surface = cairo.ImageSurface(cairo.FORMAT_RGB24, int(width), int(height))
+		except MemoryError:
+			sys.stderr.write("Cannot render page at this zoom, not enough memory!\n")
+			return
+			pass
 		cr = cairo.Context(surface)
 		cr.set_source_rgba(1, 1, 1)
 		cr.paint()
