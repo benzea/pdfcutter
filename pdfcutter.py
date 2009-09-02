@@ -29,6 +29,8 @@ from buildview import BuildView
 from model import Model
 from cutter import Cutter
 
+gtk.gdk.threads_init()
+gtk.gdk.threads_enter()
 
 class MainWindow(object):
 
@@ -166,4 +168,5 @@ class MainWindow(object):
 win = MainWindow()
 
 gtk.main()
+gtk.gdk.threads_leave()
 
