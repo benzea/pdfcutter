@@ -156,6 +156,8 @@ class Model(gobject.GObject):
 		self._box_render_queue = []
 		self._page_render_queue = []
 		self._render_queue_lock = thread.allocate_lock()
+		# poppler does not seem to be entirely thread safe wrt. to rendering at least
+		self._document_lock = thread.allocate_lock()
 		self._render_thread_running = False
 
 		if loadfile:
@@ -207,7 +209,10 @@ class Model(gobject.GObject):
 			self._queue_page_render_at_scale(page, scale)
 			return None
 
-	def emit_pdf(self, filename):
+	def _emit_progress_cb(self, progress_cb, pos, count, *args):
+		progress_cb(pos, count, *args)
+
+	def _real_emit_pdf(self, filename, progress_cb, *args):
 		self.sort_boxes()
 		width, height = self.document.get_page(0).get_size()
 		surface = cairo.PDFSurface(filename, width, height)
@@ -223,6 +228,8 @@ class Model(gobject.GObject):
 		cr.move_to(PADDING, PADDING)
 		cr.show_layout(layout)
 
+		progress = 0
+		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
 		for box in self.iter_boxes():
 			while box.dpage > page:
 				page += 1
@@ -237,8 +244,18 @@ class Model(gobject.GObject):
 			cr.rectangle(0, 0, box.width, box.height)
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
+			self._document_lock.acquire()
 			self.document.get_page(box.spage).render_for_printing(cr)
+			self._document_lock.release()
 			cr.restore()
+
+			progress += 1
+			gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+		# done ...
+		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+
+	def emit_pdf(self, filename, progress_cb, *args):
+		thread.start_new_thread(self._real_emit_pdf, (filename, progress_cb) + args)
 
 	def iter_boxes(self):
 		for box in self._boxes:
@@ -387,7 +404,9 @@ class Model(gobject.GObject):
 		cr.set_operator(cairo.OPERATOR_OVER)
 		cr.translate(-math.ceil(x), -math.ceil(y))
 		cr.scale(scale, scale)
+		self._document_lock.acquire()
 		page.render(cr)
+		self._document_lock.release()
 
 		self._render_queue_lock.acquire()
 		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height, x - math.ceil(x), y - math.ceil(y))
@@ -420,7 +439,9 @@ class Model(gobject.GObject):
 		cr.paint()
 
 		cr.scale(scale, scale)
+		self._document_lock.acquire()
 		page.render(cr)
+		self._document_lock.release()
 
 		self._render_queue_lock.acquire()
 		self._rendered_pages[page_number] = (surface, scale)

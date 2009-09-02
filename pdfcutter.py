@@ -78,6 +78,12 @@ class MainWindow(object):
 			header_entry = self._glade.get_widget('header_entry')
 			self._model.set_header_text(header_entry.get_text())
 
+	def export_pdf_pb_updater(self, pos, count, dialog, pbar):
+		pbar.set_fraction(pos / float(count))
+
+		if pos == count:
+			dialog.response(gtk.RESPONSE_OK)
+
 	def export_pdf(self, *args):
 		if self._model is None:
 			return
@@ -92,8 +98,22 @@ class MainWindow(object):
 		fc.set_action(gtk.FILE_CHOOSER_ACTION_SAVE)
 		result = fc.run()
 		if result == gtk.RESPONSE_OK:
+			fc.hide()
 			filename = fc.get_filename()
-			self._model.emit_pdf(filename)
+
+			dialog = gtk.Dialog(title="Creating PDF %s" % filename,
+			                    parent=self._window,
+			                    flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT)
+			pbar = gtk.ProgressBar()
+			dialog.get_content_area().add(pbar)
+			pbar.show()
+
+			self._model.emit_pdf(filename, self.export_pdf_pb_updater, dialog, pbar)
+
+			result = dialog.run()
+			dialog.destroy()
+			del dialog
+
 		fc.destroy()
 
 	def save_file_as(self, *args):
@@ -158,10 +178,6 @@ class MainWindow(object):
 			self.update_ui()
 		fc.destroy()
 	
-	def on_build_pdf_clicked(self, button):
-		if self._model:
-			self._model.emit_pdf("/tmp/test.pdf")
-
 	def quit_application(self, *args):
 		gtk.main_quit()
 
