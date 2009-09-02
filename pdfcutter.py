@@ -54,6 +54,29 @@ class MainWindow(object):
 		self.update_ui()
 		self._window.show_all()
 
+		gobject.timeout_add(300000, self.autosave)
+
+	def remove_status(self, context_id, message_id):
+		statusbar = self._glade.get_widget("statusbar")
+		statusbar.remove(context_id, message_id)		
+
+	def autosave(self):
+		if self._model is None:
+			return True
+
+		statusbar = self._glade.get_widget("statusbar")
+		context_id = statusbar.get_context_id("autosave")
+
+		if self._model.loadfile is None:
+			message_id = statusbar.push(context_id, "Could not autosave, please save the project!")
+		else:
+			self._model.save_to_file(self._model.loadfile)
+			message_id = statusbar.push(context_id, "Autosaved the project.")
+
+		gobject.timeout_add(30000, self.remove_status, context_id, message_id)
+		
+		return True
+
 	def update_ui(self):
 		if self._model:
 			header_entry = self._glade.get_widget('header_entry')

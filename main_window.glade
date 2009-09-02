@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Tue Sep  1 14:34:05 2009 -->
+<!--Generated with glade3 3.4.5 on Wed Sep  2 21:52:17 2009 -->
 <glade-interface>
   <widget class="GtkWindow" id="pdfcutter">
     <signal name="delete_event" handler="quit_application"/>
@@ -284,7 +284,7 @@
           </packing>
         </child>
         <child>
-          <widget class="GtkStatusbar" id="statusbar1">
+          <widget class="GtkStatusbar" id="statusbar">
             <property name="visible">True</property>
             <property name="spacing">2</property>
           </widget>
