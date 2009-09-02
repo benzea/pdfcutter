@@ -162,7 +162,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		   ( bounds.x2 < self.x - 2 or bounds.y2 < self.y - 2 ):
 			return
 
-		lw = _LINE_WIDTH
+		lw = _LINE_WIDTH / scale
 		cr.set_line_width(lw)
 		cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)
 		cr.set_source_rgba(1.0, 0, 0, 0.8)
@@ -233,7 +233,7 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 
 		if self._drag_active:
 			cr.save()
-			lw = _LINE_WIDTH
+			lw = _LINE_WIDTH / scale
 			cr.set_line_width(lw)
 			cr.set_source_rgb(1, 0, 0)
 

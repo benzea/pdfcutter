@@ -157,7 +157,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 		if self.get_canvas().outlines:
 			cr.save()
-			lw = _LINE_WIDTH
+			lw = _LINE_WIDTH / scale
 			cr.set_line_width(lw)
 			cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)
 			cr.set_source_rgba(1.0, 0, 0, 0.8)
