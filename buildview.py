@@ -382,9 +382,9 @@ class BuildView(goocanvas.Canvas):
 		self._boxes[box] = Box(self, box, parent=self._root)
 
 	def _box_removed_cb(self, model, box):
-		self._update_pages()
 		dbox = self._boxes.pop(box)
 		dbox.remove()
+		self._update_pages()
 
 	def do_scroll_event(self, event):
 		if not event.state & gtk.gdk.CONTROL_MASK:
