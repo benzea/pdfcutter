@@ -236,10 +236,10 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 
 		if self.get_canvas().grid:
 			cr.save()
-			cr.translate(self.x, self.y)
+			cr.translate(0, self.y)
 			for x in xrange(1, int(self.width / 72 * 2.54) + 1):
-				cr.move_to((int(x / 2.54 * 72 * scale) + 0.5) / scale, 0)
-				cr.line_to((int(x / 2.54 * 72 * scale) + 0.5) / scale, self.height)
+				cr.move_to((int(self.x * scale + x / 2.54 * 72 * scale) + 0.5) / scale, 0)
+				cr.line_to((int(self.x * scale + x / 2.54 * 72 * scale) + 0.5) / scale, self.height)
 				cr.set_line_width(1 / scale)
 				cr.set_dash([4 / scale, 4 / scale])
 			cr.set_source_rgba(0, 0, 0, 0.6)
