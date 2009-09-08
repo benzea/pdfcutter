@@ -175,7 +175,7 @@ class MainWindow(object):
 		fc.add_filter(pdf_filter)
 		result = fc.run()
 		if result == gtk.RESPONSE_OK:
-			uri = fc.get_uri()
+			uri = fc.get_filename()
 			model = Model(pdffile=uri)
 			self.pdf_view.props.model = model
 			self.build_view.props.model = model

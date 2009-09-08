@@ -24,8 +24,37 @@ import gobject
 import gtk
 import poppler
 import thread
+import os
 import math
 from lru import LRU
+
+def relpath(path, start=os.path.curdir):
+	"""Return a relative version of a path"""
+
+	if not path:
+		raise ValueError("no path specified")
+	start_list = os.path.abspath(start).split(os.path.sep)
+	path_list = os.path.abspath(path).split(os.path.sep)
+	if start_list[0].lower() != path_list[0].lower():
+		unc_path, rest = os.path.splitunc(path)
+		unc_start, rest = os.path.splitunc(start)
+		if bool(unc_path) ^ bool(unc_start):
+			raise ValueError("Cannot mix UNC and non-UNC paths (%s and %s)"
+			                 % (path, start))
+		else:
+			raise ValueError("path is on drive %s, start on drive %s"
+			                 % (path_list[0], start_list[0]))
+	# Work out how much of the filepath is shared by start and path.
+	for i in range(min(len(start_list), len(path_list))):
+		if start_list[i].lower() != path_list[i].lower():
+			break
+		else:
+			i += 1
+        
+	rel_list = [os.path.pardir] * (len(start_list)-i) + path_list[i:]
+	if not rel_list:
+		return os.path.curdir
+	return os.path.join(*rel_list)
 
 PADDING = 10*72/25.4
 
@@ -165,7 +194,7 @@ class Model(gobject.GObject):
 			self._load_from_file()
 
 		self.document = \
-			poppler.document_new_from_file(self.pdffile, None)
+			poppler.document_new_from_file('file://' + self.pdffile, None)
 
 	def set_header_text(self, value):
 		self.header_text = value
@@ -297,7 +326,9 @@ class Model(gobject.GObject):
 		self.loadfile = filename
 		f = open(filename, 'w')
 		f.write('PdfCutter File\n')
-		f.write(self.pdffile)
+		dirname = os.path.dirname(os.path.abspath(filename))
+		pdffile = relpath(self.pdffile, dirname)
+		f.write(pdffile)
 		f.write('\n')
 		f.write(self.header_text)
 		f.write('\n')
@@ -308,6 +339,9 @@ class Model(gobject.GObject):
 		f = open(self.loadfile, "r")
 		assert(f.readline() == 'PdfCutter File\n')
 		self.pdffile = f.readline()[:-1]
+		if not os.path.isabs(self.pdffile):
+			self.pdffile = os.path.join(os.path.dirname(os.path.abspath(self.loadfile)), self.pdffile)
+			self.pdffile = os.path.abspath(self.pdffile)
 		self.header_text = f.readline()[:-1]
 		for line in f.readlines():
 			data = line.split()
