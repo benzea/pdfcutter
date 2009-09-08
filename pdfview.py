@@ -73,39 +73,68 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		self._canvas.request_update()
 		self._canvas.request_redraw(self.bounds)
 
+	def _get_edge(self, x, y):
+		edge = 0
+		x = x - self.x
+		y = y - self.y
+		if y <= min(self.height * 0.2, _LINE_WIDTH * 5):
+			edge |= _EDGE_TOP
+		if self.height - y <= min(self.height * 0.2, _LINE_WIDTH * 5):
+			edge |= _EDGE_BOTTOM
+		if x <= min(self.width * 0.2, _LINE_WIDTH * 5):
+			edge |= _EDGE_LEFT
+		if self.width - x <= min(self.width * 0.2, _LINE_WIDTH * 5):
+			edge |= _EDGE_RIGHT
+
+		if edge == 0 and \
+		   0 <= x <= self.width and \
+		   0 <= y <= self.height:
+			edge = _BOX
+		return edge
+
 	def do_button_press_event(self, target, event):
 		if event.button == 1:
 			if event.state & gtk.gdk.CONTROL_MASK:
 				self._canvas._model.remove_box(self._box)
 				return True
 
-			self._drag_active = True
-			
 			self._mouse_x = event.x
 			self._mouse_y = event.y
-			x = self._mouse_x
-			y = self._mouse_y
-			x -= self.x
-			y -= self.y
-
-			self._drag = 0
-			if y <= _LINE_WIDTH * 2:
-				self._drag |= _EDGE_TOP
-			if self.height - y <= _LINE_WIDTH * 2:
-				self._drag |= _EDGE_BOTTOM
-			if x <= _LINE_WIDTH * 2:
-				self._drag |= _EDGE_LEFT
-			if self.width - x <= _LINE_WIDTH * 2:
-				self._drag |= _EDGE_RIGHT
-
-			if self._drag == 0:
-				self._drag = _BOX
+			self._drag = self._get_edge(self._mouse_x, self._mouse_y)
+			if self._drag:
+				self._drag_active = True
 
 	def do_button_release_event(self, target, event):
 		if event.button == 1 and self._drag_active:
 			self._drag_active = False
 
 	def do_motion_notify_event(self, target, event):
+		edge = self._get_edge(event.x, event.y)
+		if edge == _EDGE_TOP:
+			cursor = gtk.gdk.TOP_SIDE
+		elif edge == _EDGE_BOTTOM:
+			cursor = gtk.gdk.BOTTOM_SIDE
+		elif edge == _EDGE_LEFT:
+			cursor = gtk.gdk.LEFT_SIDE
+		elif edge == _EDGE_RIGHT:
+			cursor = gtk.gdk.RIGHT_SIDE
+		elif edge == _EDGE_RIGHT | _EDGE_TOP:
+			cursor = gtk.gdk.TOP_RIGHT_CORNER
+		elif edge == _EDGE_RIGHT | _EDGE_BOTTOM:
+			cursor = gtk.gdk.BOTTOM_RIGHT_CORNER
+		elif edge == _EDGE_LEFT | _EDGE_TOP:
+			cursor = gtk.gdk.TOP_LEFT_CORNER
+		elif edge == _EDGE_LEFT | _EDGE_BOTTOM:
+			cursor = gtk.gdk.BOTTOM_LEFT_CORNER
+		elif edge == _BOX:
+			cursor = gtk.gdk.FLEUR
+		else:
+			cursor = None
+
+		if cursor:
+			cursor = gtk.gdk.Cursor(self._canvas.get_display(), cursor)
+		self._canvas.window.set_cursor(cursor)
+
 		if not self._drag_active:
 			return False
 
@@ -279,6 +308,7 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 			self.get_canvas().request_redraw(self.bounds)
 
 	def do_motion_notify_event(self, target, event):
+		self.get_canvas().window.set_cursor(None)
 		if self._drag_active:
 			self._drag_end_x = event.x
 			self._drag_end_y = event.y

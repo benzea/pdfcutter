@@ -89,6 +89,10 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			self._drag_active = False
 
 	def do_motion_notify_event(self, target, event):
+		cursor = gtk.gdk.FLEUR
+		cursor = gtk.gdk.Cursor(self._canvas.get_display(), cursor)
+		self._canvas.window.set_cursor(cursor)
+
 		if not self._drag_active:
 			return False
 
@@ -219,6 +223,9 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 
 	def do_simple_paint(self, cr, bounds):
 		pass
+
+	def do_motion_notify_event(self, target, event):
+		self.get_canvas().window.set_cursor(None)
 
 	def do_paint(self, cr, bounds, scale):
 		if ( bounds.x1 > self.x + self.width + 2 or \
