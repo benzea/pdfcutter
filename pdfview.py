@@ -234,7 +234,13 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 		cr.rectangle(self.x, self.y, self.width, self.height)
 		cr.fill()
 
-		result = self._model.get_rendered_page_or_queue(self._page, scale)
+		x_offset = self.x * scale
+		y_offset = self.y * scale
+		x_offset = x_offset - math.floor(x_offset)
+		y_offset = y_offset - math.floor(y_offset)
+		x_offset = -x_offset / scale
+		y_offset = -y_offset / scale
+		result = self._model.get_rendered_page_or_queue(self._page, scale, x_offset, y_offset)
 		if result is None:
 			cr.translate(self.x + self.width / 2.0, self.y + self.height / 2.0)
 			cr.set_source_rgb(0.4, 0.4, 0.4)
@@ -253,10 +259,14 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 
 		image = result[0]
 		iscale = result[1]
+		x_offset = result[2]
+		y_offset = result[3]
+		cr.rectangle(self.x, self.y, self.width, self.height)
 		cr.translate(self.x, self.y)
+		cr.translate(x_offset, y_offset)
 		cr.scale(1 / iscale, 1 / iscale)
 		cr.set_source_surface(image)
-		cr.paint()
+		cr.fill()
 
 		cr.restore()
 

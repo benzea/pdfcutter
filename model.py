@@ -200,43 +200,44 @@ class Model(gobject.GObject):
 		self.header_text = value
 		self.emit('header-text-changed')
 
-	def get_rendered_box_or_queue (self, box, scale):
+	def get_rendered_box_or_queue (self, box, scale, x_offset, y_offset):
 		try:
 			# Try to retrieve a preprendered box
 			self._render_queue_lock.acquire()
-			result, rscale, page, x, y, width, height, offset_x, offset_y = self._rendered_boxes[box]
+			result, _scale, page, x, y, width, height, _x_offset, _y_offset = self._rendered_boxes[box]
 			self._render_queue_lock.release()
 
-			if rscale != scale or page != box.spage or x != box.sx or \
-			   y != box.sy or width != box.width or height != box.height:
+			if scale != _scale or page != box.spage or x != box.sx or \
+			   y != box.sy or width != box.width or height != box.height or\
+			   x_offset != _x_offset or y_offset != _y_offset:
 				# Queue a render at the correct scale
-				self._queue_box_render_at_scale(box, scale)
+				self._queue_box_render_at_scale(box, scale, x_offset, y_offset)
 
 			if page != box.spage or x != box.sx or \
 			   y != box.sy or width != box.width or height != box.height:
 				result = None
 			if result is not None:
-				return result, rscale, offset_x, offset_y
+				return result, _scale, _x_offset, _y_offset
 		except KeyError:
 			# Nothing, there, queue the rendering
 			self._render_queue_lock.release()
-			self._queue_box_render_at_scale(box, scale)
+			self._queue_box_render_at_scale(box, scale, x_offset, y_offset)
 
-	def get_rendered_page_or_queue (self, page, scale):
+	def get_rendered_page_or_queue (self, page, scale, x_offset, y_offset):
 		try:
 			# Try to retrieve a preprendered box
 			self._render_queue_lock.acquire()
-			result, rscale = self._rendered_pages[page]
+			result, _scale, _x_offset, _y_offset = self._rendered_pages[page]
 			self._render_queue_lock.release()
 
-			if rscale != scale:
+			if scale != _scale or x_offset != _x_offset or y_offset != _y_offset:
 				# Queue a render at the correct scale
-				self._queue_page_render_at_scale(page, scale)
-			return result, rscale
+				self._queue_page_render_at_scale(page, scale, x_offset, y_offset)
+			return result, _scale, _x_offset, _y_offset
 		except KeyError:
 			# Nothing, there, queue the rendering
 			self._render_queue_lock.release()
-			self._queue_page_render_at_scale(page, scale)
+			self._queue_page_render_at_scale(page, scale, x_offset, y_offset)
 			return None
 
 	def _emit_progress_cb(self, progress_cb, pos, count, *args):
@@ -357,37 +358,37 @@ class Model(gobject.GObject):
 			b._model = self
 			self._boxes.append(b)
 
-	def _queue_box_render_at_scale(self, box, scale):
+	def _queue_box_render_at_scale(self, box, scale, x_offset, y_offset):
 		self._render_queue_lock.acquire()
 		for queue in self._box_render_queue:
 			if queue[0] != box:
 				continue
 
-			if queue[1] != scale:
+			if queue[1] != scale or queue[2] != x_offset or queue[3] != y_offset:
 				self._box_render_queue.remove(queue)
 			else:
 				self._render_queue_lock.release()
 				return
 					
-		self._box_render_queue.append((box, scale))
+		self._box_render_queue.append((box, scale, x_offset, y_offset))
 		# Recreate thread if neccessary
 		if not self._render_thread_running:
 			thread.start_new_thread(self._render_thread, ())
 			self._render_thread_running = True
 		self._render_queue_lock.release()
 
-	def _queue_page_render_at_scale(self, page, scale):
+	def _queue_page_render_at_scale(self, page, scale, x_offset, y_offset):
 		self._render_queue_lock.acquire()
 
 		for queue in self._page_render_queue:
 			if queue[0] == page:
-				if queue[1] != scale:
+				if queue[1] != scale or queue[2] != x_offset or queue[3] != y_offset:
 					self._page_render_queue.remove(queue)
 				else:
 					self._render_queue_lock.release()
 					return
 
-		self._page_render_queue.append((page, scale))
+		self._page_render_queue.append((page, scale, x_offset, y_offset))
 		# Recreate thread if neccessary
 		if not self._render_thread_running:
 			thread.start_new_thread(self._render_thread, ())
@@ -424,6 +425,8 @@ class Model(gobject.GObject):
 		box = data[0]
 		page_number, x, y, width, height = box.spage, box.sx, box.sy, box.width, box.height
 		scale = data[1]
+		x_offset = data[2]
+		y_offset = data[3]
 
 		page = self.document.get_page(page_number)
 		scaled_width = width + 1
@@ -443,13 +446,13 @@ class Model(gobject.GObject):
 
 		cr.set_operator(cairo.OPERATOR_OVER)
 		cr.scale(scale, scale)
-		cr.translate(-math.ceil(x), -math.ceil(y))
+		cr.translate(-x + y_offset, -y + x_offset)
 		self._document_lock.acquire()
 		page.render(cr)
 		self._document_lock.release()
 
 		self._render_queue_lock.acquire()
-		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height, x - math.ceil(x), y - math.ceil(y))
+		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height, x_offset, y_offset)
 		self._render_queue_lock.release()
 
 		gobject.idle_add(self._emit_box_rendered, box)
@@ -468,13 +471,15 @@ class Model(gobject.GObject):
 
 		page_number = data[0]
 		scale = data[1]
+		x_offset = data[2]
+		y_offset = data[3]
 
 		page = self.document.get_page(page_number)
 		width, height = page.get_size()
 		width *= scale
 		height *= scale
 		try:
-			surface = cairo.ImageSurface(cairo.FORMAT_RGB24, int(width), int(height))
+			surface = cairo.ImageSurface(cairo.FORMAT_RGB24, int(width + 1), int(height + 1))
 		except MemoryError:
 			sys.stderr.write("Cannot render page at this zoom, not enough memory!\n")
 			return
@@ -484,12 +489,13 @@ class Model(gobject.GObject):
 		cr.paint()
 
 		cr.scale(scale, scale)
+		cr.translate(x_offset, y_offset)
 		self._document_lock.acquire()
 		page.render(cr)
 		self._document_lock.release()
 
 		self._render_queue_lock.acquire()
-		self._rendered_pages[page_number] = (surface, scale)
+		self._rendered_pages[page_number] = (surface, scale, x_offset, y_offset)
 		self._render_queue_lock.release()
 
 		gobject.idle_add(self._emit_page_rendered, page_number)
