@@ -257,6 +257,7 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 				cr.set_line_width(1 / scale)
 				cr.set_dash([4 / scale, 4 / scale])
 
+			cr.translate(self.x, -self.y)
 			for y in xrange(1, int(self.height / 72 * 2.54) + 1):
 				cr.move_to(0, (int(self.y * scale + y / 2.54 * 72 * scale) + 0.5) / scale)
 				cr.line_to(self.width, (int(self.y * scale + y / 2.54 * 72 * scale) + 0.5) / scale)
