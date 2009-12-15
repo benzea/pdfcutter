@@ -290,6 +290,10 @@ class Model(gobject.GObject):
 
 			progress += 1
 			gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+
+		page += 1
+		surface.write_to_png("%s-%i.png" % (prefix, page))
+
 		# done ...
 		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
 
