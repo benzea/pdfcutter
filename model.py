@@ -181,7 +181,7 @@ class Model(gobject.GObject):
 		self.loadfile = loadfile
 		self.header_text = "HEADER TEXT"
 		self._boxes = []
-		self._rendered_boxes = LRU(30)
+		self._rendered_boxes = LRU(200)
 		self._rendered_pages = LRU(5)
 		self._box_render_queue = []
 		self._page_render_queue = []
