@@ -123,6 +123,8 @@ class MainWindow(object):
 		if result == gtk.RESPONSE_OK:
 			fc.hide()
 			filename = fc.get_filename()
+			if not filename.endswith('.pdf'):
+				filename += '.pdf'
 
 			dialog = gtk.Dialog(title="Creating PDF %s" % filename,
 			                    parent=self._window,
@@ -154,6 +156,9 @@ class MainWindow(object):
 		result = fc.run()
 		if result == gtk.RESPONSE_OK:
 			filename = fc.get_filename()
+			if not filename.endswith('.bcut'):
+				filename += '.bcut'
+
 			self._model.save_to_file(filename)
 		fc.destroy()
 
