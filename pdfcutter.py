@@ -141,6 +141,40 @@ class MainWindow(object):
 
 		fc.destroy()
 
+	def export_png(self, *args):
+		if self._model is None:
+			return
+
+		fc = gtk.FileChooserDialog(parent=self._window)
+		pdf_filter = gtk.FileFilter()
+		pdf_filter.add_pattern('*.png')
+		pdf_filter.set_name('PNG File')
+		fc.add_button('gtk-cancel', gtk.RESPONSE_CANCEL)
+		fc.add_button('gtk-save', gtk.RESPONSE_OK)
+		fc.add_filter(pdf_filter)
+		fc.set_action(gtk.FILE_CHOOSER_ACTION_SAVE)
+		result = fc.run()
+		if result == gtk.RESPONSE_OK:
+			fc.hide()
+			filename = fc.get_filename()
+			if filename.endswith('.png'):
+				filename = filename[:-4]
+
+			dialog = gtk.Dialog(title="Creating PNG Files %s-%%i.png" % filename,
+			                    parent=self._window,
+			                    flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT)
+			pbar = gtk.ProgressBar()
+			dialog.get_content_area().add(pbar)
+			pbar.show()
+
+			self._model.emit_png(filename, self.export_pdf_pb_updater, dialog, pbar)
+
+			result = dialog.run()
+			dialog.destroy()
+			del dialog
+
+		fc.destroy()
+
 	def save_file_as(self, *args):
 		if self._model is None:
 			return

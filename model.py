@@ -243,6 +243,57 @@ class Model(gobject.GObject):
 	def _emit_progress_cb(self, progress_cb, pos, count, *args):
 		progress_cb(pos, count, *args)
 
+	def _real_emit_png(self, prefix, progress_cb, *args):
+		self.sort_boxes()
+		width, height = self.document.get_page(0).get_size()
+		width_px = int(width / 72.0 * 300)
+		height_px = int(height / 72.0 * 300)
+
+		surface = cairo.ImageSurface(cairo.FORMAT_RGB24, width_px, height_px)
+		cr = cairo.Context(surface)
+		cr.set_source_rgb(1, 1, 1)
+		cr.paint()
+		cr.scale(300.0 / 72.0, 300 / 72.0)
+		cr = pangocairo.CairoContext(cr)
+		font = pango.FontDescription(HEADER_FONT)
+		font.set_weight(pango.WEIGHT_BOLD)
+		page = 0
+
+		layout = cr.create_layout()
+		layout.set_text(self.header_text)
+		layout.set_font_description(font)
+		cr.move_to(PADDING, PADDING)
+		cr.show_layout(layout)
+
+		progress = 0
+		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+		for box in self.iter_boxes():
+			while box.dpage > page:
+				page += 1
+				surface.write_to_png("%s-%i.png" % (prefix, page))
+				cr.set_source_rgb(1, 1, 1)
+				cr.paint()
+				layout = cr.create_layout()
+				layout.set_text(self.header_text)
+				layout.set_font_description(font)
+				cr.move_to(PADDING, PADDING - 2)
+				cr.show_layout(layout)
+			cr.save()
+			cr.translate(+box.dx, +box.dy)
+			cr.rectangle(0, 0, box.width, box.height)
+			cr.clip()
+			cr.translate(-box.sx, -box.sy)
+			self._document_lock.acquire()
+			self.document.get_page(box.spage).render_for_printing(cr)
+			self._document_lock.release()
+			cr.restore()
+
+			progress += 1
+			gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+		# done ...
+		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+
+
 	def _real_emit_pdf(self, filename, progress_cb, *args):
 		self.sort_boxes()
 		width, height = self.document.get_page(0).get_size()
@@ -287,6 +338,9 @@ class Model(gobject.GObject):
 
 	def emit_pdf(self, filename, progress_cb, *args):
 		thread.start_new_thread(self._real_emit_pdf, (filename, progress_cb) + args)
+
+	def emit_png(self, prefix, progress_cb, *args):
+		thread.start_new_thread(self._real_emit_png, (prefix, progress_cb) + args)
 
 	def iter_boxes(self):
 		for box in self._boxes:
