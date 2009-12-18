@@ -392,6 +392,10 @@ class BuildView(goocanvas.Canvas):
 			# Just ignore if it the box disappeared already
 			pass
 
+	def _scroll_to_box(self, box):
+		self._vadjustment.clamp_page(box.y, box.y + box.height)
+		self._hadjustment.clamp_page(box.x, box.x + box.width)
+
 	def _header_text_changed_cb(self, model):
 		self.queue_draw()
 
@@ -402,6 +406,7 @@ class BuildView(goocanvas.Canvas):
 	def _box_added_cb(self, model, box):
 		self._update_pages(box.dpage + 1)
 		self._boxes[box] = Box(self, box, parent=self._root)
+		self._scroll_to_box(self._boxes[box])
 
 	def _box_removed_cb(self, model, box):
 		dbox = self._boxes.pop(box)
