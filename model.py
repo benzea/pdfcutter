@@ -379,13 +379,13 @@ class Model(gobject.GObject):
 		page = 0
 		self._boxes.sort()
 		for b in self._boxes:
-			if b.dx > box.dx + box.width or \
-			   b.dx + b.width < box.dx:
-				continue
-			
 			if b.dpage > page:
 				page = b.dpage
 				ypos = PADDING
+
+			if b.dx > box.dx + box.width or \
+			   b.dx + b.width < box.dx:
+				continue
 			ypos = max(ypos, b.dy + b.height)
 		width, height = self.document.get_page(0).get_size()
 		if ypos + box.height > height - PADDING:
