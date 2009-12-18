@@ -256,7 +256,19 @@ class MainWindow(object):
 		about_dialog.destroy()
 	
 	def quit_application(self, *args):
-		gtk.main_quit()
+		buttons = (gtk.STOCK_CLOSE, gtk.RESPONSE_OK, gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+		dialog = gtk.MessageDialog(
+		    parent=self._window,
+		    flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+		    type=gtk.MESSAGE_WARNING,
+		    buttons=gtk.BUTTONS_NONE)
+		dialog.set_markup("<b>Britzel Cut schließen?</b>")
+		dialog.format_secondary_text("Sind Sie sicher, dass Sie Britzel Cut beenden wollen?")
+		dialog.set_title("Britzel Cut schließen?")
+		dialog.add_buttons(gtk.STOCK_CLOSE, gtk.RESPONSE_OK, gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+		result = dialog.run()
+		if result == gtk.RESPONSE_OK:
+			gtk.main_quit()
 
 win = MainWindow()
 
