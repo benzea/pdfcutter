@@ -269,6 +269,9 @@ class MainWindow(object):
 		result = dialog.run()
 		if result == gtk.RESPONSE_OK:
 			gtk.main_quit()
+		else:
+			dialog.destroy()
+			return True
 
 win = MainWindow()
 
