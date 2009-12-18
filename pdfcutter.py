@@ -29,13 +29,16 @@ from buildview import BuildView
 from model import Model
 from cutter import Cutter
 
+dir = os.path.dirname(__file__)
+sys.path.append(dir)
+
 gtk.gdk.threads_init()
 gtk.gdk.threads_enter()
 
 class MainWindow(object):
 
 	def __init__(self) :
-		self._glade = gtk.glade.XML(os.path.join('./main_window.glade'))
+		self._glade = gtk.glade.XML(os.path.join(dir, 'main_window.glade'))
 		self._model = None
 		
 		self._window = self._glade.get_widget("pdfcutter")
@@ -233,13 +236,16 @@ class MainWindow(object):
 		result = fc.run()
 		if result == gtk.RESPONSE_OK:
 			filename = fc.get_filename()
-			model = Model(loadfile=filename)
-			self.pdf_view.props.model = model
-			self.build_view.props.model = model
-			self._model = model
-			self.update_ui()
+			self.load_file(filename)
 		fc.destroy()
 
+	def load_file(self, filename):
+		model = Model(loadfile=filename)
+		self.pdf_view.props.model = model
+		self.build_view.props.model = model
+		self._model = model
+		self.update_ui()
+		
 	def show_about_dialog(self, *args):
 		about_dialog = gtk.AboutDialog()
 		about_dialog.set_authors(["Benjamin Berg <benjamin@sipsolutions.net>"])
@@ -253,6 +259,9 @@ class MainWindow(object):
 		gtk.main_quit()
 
 win = MainWindow()
+
+if len(sys.argv) == 2:
+	win.load_file(sys.argv[1])
 
 def url_hook(dialog, link):
 	gtk.show_uri(dialog.get_screen(), gtk.gdk.CURRENT_TIME)
