@@ -26,6 +26,7 @@ import poppler
 import thread
 import os
 import math
+import tempfile
 from lru import LRU
 
 def relpath(path, start=os.path.curdir):
@@ -243,7 +244,16 @@ class Model(gobject.GObject):
 	def _emit_progress_cb(self, progress_cb, pos, count, *args):
 		progress_cb(pos, count, *args)
 
-	def _real_emit_png(self, prefix, progress_cb, *args):
+	def _real_emit_tif(self, filename, progress_cb, *pbargs):
+		tmpdir = tempfile.mkdtemp()
+		
+		def write_tif(surface, tmpdir, page):
+			png = os.path.join(tmpdir, "%i.png" % page)
+			tif = os.path.join(tmpdir, "%i.tif" % page)
+			surface.write_to_png(png)
+			os.spawnv(os.P_WAIT, '/usr/bin/convert', ['convert', png, '-monochrome', tif])
+			os.unlink(png)
+		
 		self.sort_boxes()
 		width, height = self.document.get_page(0).get_size()
 		width_px = int(width / 72.0 * 300)
@@ -266,11 +276,11 @@ class Model(gobject.GObject):
 		cr.show_layout(layout)
 
 		progress = 0
-		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *pbargs)
 		for box in self.iter_boxes():
 			while box.dpage > page:
 				page += 1
-				surface.write_to_png("%s-%i.png" % (prefix, page))
+				write_tif(surface, tmpdir, page)
 				cr.set_source_rgb(1, 1, 1)
 				cr.paint()
 				layout = cr.create_layout()
@@ -289,13 +299,24 @@ class Model(gobject.GObject):
 			cr.restore()
 
 			progress += 1
-			gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+			gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes)+1, *pbargs)
 
 		page += 1
-		surface.write_to_png("%s-%i.png" % (prefix, page))
+		write_tif(surface, tmpdir, page)
+		
+		input = [ os.path.join(tmpdir, "%i.tif" % i) for i in xrange(1, page+1) ]
+
+		args = [ 'tiffcp' ]
+		args += input
+		args.append(filename)
+		os.spawnv(os.P_WAIT, '/usr/bin/tiffcp', args)
+
+		for file in input:
+			os.unlink(file)
+		os.rmdir(tmpdir)
 
 		# done ...
-		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+		gobject.idle_add(self._emit_progress_cb, progress_cb, len(self._boxes)+1, len(self._boxes)+1, *pbargs)
 
 
 	def _real_emit_pdf(self, filename, progress_cb, *args):
@@ -343,8 +364,8 @@ class Model(gobject.GObject):
 	def emit_pdf(self, filename, progress_cb, *args):
 		thread.start_new_thread(self._real_emit_pdf, (filename, progress_cb) + args)
 
-	def emit_png(self, prefix, progress_cb, *args):
-		thread.start_new_thread(self._real_emit_png, (prefix, progress_cb) + args)
+	def emit_tif(self, filename, progress_cb, *args):
+		thread.start_new_thread(self._real_emit_tif, (filename, progress_cb) + args)
 
 	def iter_boxes(self):
 		for box in self._boxes:

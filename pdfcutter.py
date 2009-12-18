@@ -61,7 +61,7 @@ class MainWindow(object):
 
 	def remove_status(self, context_id, message_id):
 		statusbar = self._glade.get_widget("statusbar")
-		statusbar.remove(context_id, message_id)		
+		statusbar.remove_message(context_id, message_id)		
 
 	def autosave(self):
 		if self._model is None:
@@ -150,8 +150,8 @@ class MainWindow(object):
 
 		fc = gtk.FileChooserDialog(parent=self._window)
 		pdf_filter = gtk.FileFilter()
-		pdf_filter.add_pattern('*.png')
-		pdf_filter.set_name('PNG File')
+		pdf_filter.add_pattern('*.tif')
+		pdf_filter.set_name('Monochrome TIF File')
 		fc.add_button('gtk-cancel', gtk.RESPONSE_CANCEL)
 		fc.add_button('gtk-save', gtk.RESPONSE_OK)
 		fc.add_filter(pdf_filter)
@@ -160,17 +160,17 @@ class MainWindow(object):
 		if result == gtk.RESPONSE_OK:
 			fc.hide()
 			filename = fc.get_filename()
-			if filename.endswith('.png'):
-				filename = filename[:-4]
+			if not filename.endswith('.tif'):
+				filename += '.tif'
 
-			dialog = gtk.Dialog(title="Creating PNG Files %s-%%i.png" % filename,
+			dialog = gtk.Dialog(title="Creating monochrome TIF File %s" % filename,
 			                    parent=self._window,
 			                    flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT)
 			pbar = gtk.ProgressBar()
 			dialog.get_content_area().add(pbar)
 			pbar.show()
 
-			self._model.emit_png(filename, self.export_pdf_pb_updater, dialog, pbar)
+			self._model.emit_tif(filename, self.export_pdf_pb_updater, dialog, pbar)
 
 			result = dialog.run()
 			dialog.destroy()
