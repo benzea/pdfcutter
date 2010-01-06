@@ -123,6 +123,12 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		elif keyname == 'Down':
 			self._box.dy = min(max_y, self._box.dy + 72.0 / 25.4)
 			return True
+		elif keyname == 'minus':
+			self._canvas._model.move_box_down(self._box)
+			return True
+		elif keyname == 'plus':
+			self._canvas._model.move_box_up(self._box)
+			return True
 
 	def do_motion_notify_event(self, target, event):
 		cursor = gtk.gdk.FLEUR
@@ -354,6 +360,7 @@ class BuildView(goocanvas.Canvas):
 		self._model = model
 		self._page_rendered_id = self._model.connect("box-rendered", self._box_rendered_cb)
 		self._box_changed_id = self._model.connect("box-changed", self._box_changed_cb)
+		self._box_changed_id = self._model.connect("box-zpos-changed", self._box_zpos_changed_cb)
 		self._box_added_id = self._model.connect("box-added", self._box_added_cb)
 		self._box_removed_id = self._model.connect("box-removed", self._box_removed_cb)
 		self._header_text_changed_id = self._model.connect("header-text-changed", self._header_text_changed_cb)
@@ -441,6 +448,15 @@ class BuildView(goocanvas.Canvas):
 	def _box_changed_cb(self, model, box):
 		self._update_pages()
 		self._boxes[box].update_pos()
+
+	def _box_zpos_changed_cb(self, model, box):
+		prev = model.get_lower_box(box)
+		if prev:
+			self._boxes[box].lower(self._boxes[prev])
+			self._boxes[box].raise_(self._boxes[prev])
+		else:
+			self._boxes[box].lower(self._pages[box.dpage])
+			self._boxes[box].raise_(self._pages[box.dpage])
 
 	def _box_added_cb(self, model, box):
 		self._update_pages(box.dpage + 1)

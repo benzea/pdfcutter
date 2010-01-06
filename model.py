@@ -132,6 +132,12 @@ class Box(gobject.GObject):
 	def set_dpage(self, value):
 		self._dpage = value
 		self._emit_change()
+		
+		if self._model:
+			# Keep boxes sorted
+			self._model.sort_boxes()
+			# Emit the models signal ...
+			self._model.emit("box-zpos-changed", self)
 
 	def _emit_change(self):
 		self.emit("changed")
@@ -149,6 +155,9 @@ class Box(gobject.GObject):
 	dy = gobject.property(type=float, getter=get_dy, setter=set_dy)
 	dpage = gobject.property(type=int, getter=get_dpage, setter=set_dpage)
 
+	def __eq__(self, other):
+		return self is other
+
 	def __cmp__(self, other):
 		if self.dpage < other.dpage:
 			return -1
@@ -160,6 +169,7 @@ class Model(gobject.GObject):
 	__gtype_name__ = 'PDFCutterModel'
 	__gsignals__ = {
 		'box-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
+		'box-zpos-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
 		'box-added': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
 		'box-removed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
 		'page-rendered': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
@@ -393,6 +403,29 @@ class Model(gobject.GObject):
 	def remove_box(self, box):
 		self._boxes.remove(box)
 		self.emit("box-removed", box)
+
+	def get_lower_box(self, box):
+		index = self._boxes.index(box)
+		if index > 0 and self._boxes[index-1].dpage == box.dpage:
+			return self._boxes[index-1]
+		else:
+			return None
+
+	def move_box_down(self, box):
+		index = self._boxes.index(box)
+		if index > 0 and self._boxes[index-1].dpage == box.dpage:
+			_ = self._boxes[index-1]
+			self._boxes[index-1] = self._boxes[index]
+			self._boxes[index] = _
+		self.emit("box-zpos-changed", box)
+
+	def move_box_up(self, box):
+		index = self._boxes.index(box)
+		if index+1 < len(self._boxes) and self._boxes[index+1].dpage == box.dpage:
+			_ = self._boxes[index+1]
+			self._boxes[index+1] = self._boxes[index]
+			self._boxes[index] = _
+		self.emit("box-zpos-changed", box)
 
 	def save_to_file(self, filename):
 		self.loadfile = filename
