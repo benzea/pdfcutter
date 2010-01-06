@@ -44,10 +44,21 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		self.y = 0
 		self.width = 1
 		self.height = 1
+		self.has_focus = False
 		
 		self._drag_active = False
 
 		self.update_pos()
+
+	def do_focus_in_event(self, target_item, event):
+		if target_item == self:
+			self.has_focus = True
+			self._canvas.request_redraw(self.bounds)
+
+	def do_focus_out_event(self, target_item, event):
+		if target_item == self:
+			self.has_focus = False
+			self._canvas.request_redraw(self.bounds)
 
 	def do_simple_create_path(self, cr):
 		cr.rectangle(self.x, self.y, self.width, self.height)
@@ -83,10 +94,35 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			self._mouse_y = event.y
 			self._box_start_x = self._box.dx
 			self._box_start_y = self._box.dy
+			self._canvas.grab_focus(self)
 
 	def do_button_release_event(self, target, event):
 		if event.button == 1 and self._drag_active:
 			self._drag_active = False
+
+	def do_key_press_event(self, target, event):
+		keyname = gtk.gdk.keyval_name(event.keyval)
+		max_x = self._canvas._pages[self._box.dpage].width
+		max_y = self._canvas._pages[self._box.dpage].height
+
+		max_x -= self._box._width
+		max_y -= self._box._height
+
+		if keyname == 'Delete':
+			self._canvas._model.remove_box(self._box)
+			return True
+		elif keyname == 'Left':
+			self._box.dx = max(0, self._box.dx - 72.0 / 25.4)
+			return True
+		elif keyname == 'Right':
+			self._box.dx = min(max_x, self._box.dx + 72.0 / 25.4)
+			return True
+		elif keyname == 'Up':
+			self._box.dy = max(0, self._box.dy - 72.0 / 25.4)
+			return True
+		elif keyname == 'Down':
+			self._box.dy = min(max_y, self._box.dy + 72.0 / 25.4)
+			return True
 
 	def do_motion_notify_event(self, target, event):
 		cursor = gtk.gdk.FLEUR
@@ -164,7 +200,10 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			lw = _LINE_WIDTH / scale
 			cr.set_line_width(lw)
 			cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)
-			cr.set_source_rgba(1.0, 0, 0, 0.8)
+			if not self.has_focus:
+				cr.set_source_rgba(1.0, 0, 0, 0.8)
+			else:
+				cr.set_source_rgba(0, 0, 1.0, 0.8)
 			cr.stroke()
 			cr.restore()
 
