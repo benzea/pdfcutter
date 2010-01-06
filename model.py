@@ -154,14 +154,6 @@ class Box(gobject.GObject):
 			return -1
 		if self.dpage > other.dpage:
 			return 1
-		if self.dy < other.dy:
-			return -1
-		if self.dy > other.dy:
-			return 1
-		if self.dx < other.dx:
-			return -1
-		if self.dx > other.dx:
-			return 1
 		return 0
 
 class Model(gobject.GObject):
