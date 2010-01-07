@@ -75,6 +75,7 @@ class Box(gobject.GObject):
 		self._height = 0
 		self._model = None
 
+		self._dscale = 2.0
 		self._dpage = 0
 		self._dx = 0
 		self._dy = 0
@@ -139,6 +140,12 @@ class Box(gobject.GObject):
 			# Emit the models signal ...
 			self._model.emit("box-zpos-changed", self)
 
+	def get_dscale(self):
+		return self._dscale
+	def set_dscale(self, value):
+		self._dscale = value
+		self._emit_change()
+
 	def _emit_change(self):
 		self.emit("changed")
 		# so we do not need to connect to all the boxes in the model
@@ -154,6 +161,7 @@ class Box(gobject.GObject):
 	dx = gobject.property(type=float, getter=get_dx, setter=set_dx)
 	dy = gobject.property(type=float, getter=get_dy, setter=set_dy)
 	dpage = gobject.property(type=int, getter=get_dpage, setter=set_dpage)
+	dscale = gobject.property(type=float, getter=get_dscale, setter=set_dscale)
 
 	def __eq__(self, other):
 		return self is other
@@ -292,7 +300,8 @@ class Model(gobject.GObject):
 				cr.show_layout(layout)
 			cr.save()
 			cr.translate(+box.dx, +box.dy)
-			cr.rectangle(0, 0, box.width, box.height)
+			cr.scale(box.dscale, box.dscale)
+			cr.rectangle(0, 0, box.width*box.dscale, box.height*box.dscale)
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
 			self._document_lock.acquire()
@@ -350,6 +359,7 @@ class Model(gobject.GObject):
 				cr.show_layout(layout)
 			cr.save()
 			cr.translate(+box.dx, +box.dy)
+			cr.scale(box.dscale, box.dscale)
 			cr.rectangle(0, 0, box.width, box.height)
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
@@ -438,7 +448,7 @@ class Model(gobject.GObject):
 		f.write(self.header_text)
 		f.write('\n')
 		for b in self._boxes:
-			f.write("%f %f %f %f %f %f %i %i\n" % (b.sx, b.sy, b.width, b.height, b.dx, b.dy, b.spage, b.dpage))
+			f.write("%f %f %f %f %f %f %f %i %i\n" % (b.sx, b.sy, b.width, b.height, b.dx, b.dy, b.dscale, b.spage, b.dpage))
 
 	def _load_from_file(self):
 		f = open(self.loadfile, "r")
@@ -457,8 +467,16 @@ class Model(gobject.GObject):
 			b.height = float(data[3])
 			b.dx = float(data[4])
 			b.dy = float(data[5])
-			b.spage = int(data[6])
-			b.dpage = float(data[7])
+			if len(data) == 9:
+				b.dscale = float(data[6])
+				b.spage = int(data[7])
+				b.dpage = int(data[8])
+			elif len(data) == 8:
+				b.dscale = 1.0
+				b.spage = int(data[6])
+				b.dpage = int(data[7])
+			else:
+				raise AssertionError
 			b._model = self
 			self._boxes.append(b)
 

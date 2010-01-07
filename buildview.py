@@ -74,8 +74,8 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		page = self._canvas._pages[self._box.dpage]
 		self.x = self._box.dx
 		self.y = self._box.dy
-		self.width = self._box.width
-		self.height = self._box.height
+		self.width = self._box.width * self._box.dscale
+		self.height = self._box.height * self._box.dscale
 		self.x += page.x
 		self.y += page.y
 
@@ -90,6 +90,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 	def do_button_press_event(self, target, event):
 		if event.button == 1:
 			self._drag_active = True
+			self._drag_edge = self._get_edge(event.x, event.y)
 			self._mouse_x = event.x
 			self._mouse_y = event.y
 			self._box_start_x = self._box.dx
@@ -105,8 +106,8 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		max_x = self._canvas._pages[self._box.dpage].width
 		max_y = self._canvas._pages[self._box.dpage].height
 
-		max_x -= self._box._width
-		max_y -= self._box._height
+		max_x -= self.width
+		max_y -= self.height
 
 		if keyname == 'Delete':
 			self._canvas._model.remove_box(self._box)
@@ -129,15 +130,81 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		elif keyname == 'plus':
 			self._canvas._model.move_box_up(self._box)
 			return True
+		elif keyname == 'equal':
+			self._box.dscale = 1.0
+			return True
+
+	def _get_edge(self, x, y):
+		edge = 0
+		x = x - self.x
+		y = y - self.y
+		if y <= min(self.height * 0.2, _LINE_WIDTH * 5):
+			edge |= _EDGE_TOP
+		if self.height - y <= min(self.height * 0.2, _LINE_WIDTH * 5):
+			edge |= _EDGE_BOTTOM
+		if x <= min(self.width * 0.2, _LINE_WIDTH * 5):
+			edge |= _EDGE_LEFT
+		if self.width - x <= min(self.width * 0.2, _LINE_WIDTH * 5):
+			edge |= _EDGE_RIGHT
+
+		if edge == 0 and \
+		   0 <= x <= self.width and \
+		   0 <= y <= self.height:
+			edge = _BOX
+		return edge
 
 	def do_motion_notify_event(self, target, event):
-		cursor = gtk.gdk.FLEUR
-		cursor = gtk.gdk.Cursor(self._canvas.get_display(), cursor)
+		cursor = None
+		edge = self._get_edge(event.x, event.y)
+
+		if not self._drag_active:
+			# Only do bottom right corner for resize for now ...
+			if edge == _EDGE_RIGHT | _EDGE_BOTTOM:
+				cursor = gtk.gdk.BOTTOM_RIGHT_CORNER
+			elif edge == _BOX:
+				cursor = gtk.gdk.FLEUR
+		else:
+			if self._drag_edge == _EDGE_RIGHT | _EDGE_BOTTOM:
+				cursor = gtk.gdk.BOTTOM_RIGHT_CORNER
+			else:
+				cursor = gtk.gdk.FLEUR
+
+		# This should always be not None ...
+		if cursor:
+			cursor = gtk.gdk.Cursor(self._canvas.get_display(), cursor)
 		self._canvas.window.set_cursor(cursor)
 
 		if not self._drag_active:
-			return False
+			return True
 
+		if self._drag_edge == _BOX:
+			self._drag_box(event)
+		elif self._drag_edge == _EDGE_RIGHT | _EDGE_BOTTOM:
+			self._scale_box(event)
+		else:
+			raise AssertionError
+
+		return True
+
+	def _scale_box(self, event):
+		max_x = self._canvas._pages[self._box.dpage].width
+		max_y = self._canvas._pages[self._box.dpage].height
+
+		x_pos = event.x - self._canvas._pages[self._box.dpage].x
+		y_pos = event.y - self._canvas._pages[self._box.dpage].y
+
+		max_scale = \
+		    min((self._canvas._pages[self._box.dpage].width - self._box.dx) / float(self._box.width),
+		        (self._canvas._pages[self._box.dpage].height - self._box.dy) / float(self._box.width),)
+
+		scale_x = (x_pos - self._box.dx) / float(self._box.width)
+		scale_y = (y_pos - self._box.dy) / float(self._box.height)
+
+		scale = min(max(scale_x, scale_y, 0.1), max_scale)
+
+		self._box.dscale = scale
+
+	def _drag_box(self, event):
 		max_x = self._canvas._pages[self._box.dpage].width
 		max_y = self._canvas._pages[self._box.dpage].height
 
@@ -157,8 +224,8 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		new_x = self._box.dx + dx
 		new_y = self._box.dy + dy
 
-		self._box.dx = max(0, min(new_x, max_x - self._box.width))
-		self._box.dy = max(0, min(new_y, max_y - self._box.height))
+		self._box.dx = max(0, min(new_x, max_x - self.width))
+		self._box.dy = max(0, min(new_y, max_y - self.height))
 
 		if event.state & gtk.gdk.CONTROL_MASK:
 			move_x = self._box.dx - self._box_start_x
@@ -190,8 +257,6 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		self._mouse_x += dx
 		self._mouse_y += dy
 
-		return True
-
 	def do_simple_paint(self, cr, bounds):
 		pass
 
@@ -221,7 +286,9 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		y_offset = y_offset - math.floor(y_offset)
 		x_offset = -x_offset / scale
 		y_offset = -y_offset / scale
-		result = self._canvas._model.get_rendered_box_or_queue(self._box, scale, x_offset, y_offset)
+
+		rscale = scale * self._box.dscale
+		result = self._canvas._model.get_rendered_box_or_queue(self._box, rscale, x_offset, y_offset)
 		if result is None:
 			cr.translate(self.x + self.width / 2.0, self.y + self.height / 2.0)
 			cr.set_source_rgb(0.4, 0.4, 0.4)
@@ -244,10 +311,10 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		iscale = result[1]
 		offset_x = result[2]
 		offset_y = result[3]
-		cr.rectangle(self.x, self.y, self._box.width, self._box.height)
 		cr.translate(self.x, self.y)
+		cr.rectangle(0, 0, self.width, self.height)
 		cr.translate(x_offset, y_offset)
-		cr.scale(1 / iscale, 1 / iscale)
+		cr.scale(1 / iscale * self._box.dscale, 1 / iscale * self._box.dscale)
 		cr.set_source_surface(image)
 		cr.fill()
 
