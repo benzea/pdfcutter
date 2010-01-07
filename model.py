@@ -75,7 +75,7 @@ class Box(gobject.GObject):
 		self._height = 0
 		self._model = None
 
-		self._dscale = 2.0
+		self._dscale = 1.0
 		self._dpage = 0
 		self._dx = 0
 		self._dy = 0
