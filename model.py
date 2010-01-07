@@ -568,7 +568,7 @@ class Model(gobject.GObject):
 
 		cr.set_operator(cairo.OPERATOR_OVER)
 		cr.scale(scale, scale)
-		cr.translate(-x + x_offset, -y + y_offset)
+		cr.translate(-x - x_offset, -y - y_offset)
 		self._document_lock.acquire()
 		page.render(cr)
 		self._document_lock.release()
@@ -611,7 +611,7 @@ class Model(gobject.GObject):
 		cr.paint()
 
 		cr.scale(scale, scale)
-		cr.translate(x_offset, y_offset)
+		cr.translate(-x_offset, -y_offset)
 		self._document_lock.acquire()
 		page.render(cr)
 		self._document_lock.release()

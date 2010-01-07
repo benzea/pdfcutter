@@ -309,8 +309,8 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 		image = result[0]
 		iscale = result[1]
-		offset_x = result[2]
-		offset_y = result[3]
+		x_offset = result[2]
+		y_offset = result[3]
 		cr.translate(self.x, self.y)
 		cr.rectangle(0, 0, self.width, self.height)
 		cr.translate(x_offset, y_offset)
