@@ -266,18 +266,6 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		   ( bounds.x2 < self.x - 2 or bounds.y2 < self.y - 2 ):
 			return
 
-		if self.get_canvas().outlines:
-			cr.save()
-			lw = _LINE_WIDTH / scale
-			cr.set_line_width(lw)
-			cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)
-			if not self.has_focus:
-				cr.set_source_rgba(1.0, 0, 0, 0.8)
-			else:
-				cr.set_source_rgba(0, 0, 1.0, 0.8)
-			cr.stroke()
-			cr.restore()
-
 		cr.save()
 
 		x_offset = self.x * scale
@@ -305,20 +293,31 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			cr.move_to(0, 0)
 			cr.show_text("Loading ...")
 			cr.restore()
-			return
+		else:
+			image = result[0]
+			iscale = result[1]
+			x_offset = result[2]
+			y_offset = result[3]
+			cr.translate(self.x, self.y)
+			cr.rectangle(0, 0, self.width, self.height)
+			cr.translate(x_offset, y_offset)
+			cr.scale(1 / iscale * self._box.dscale, 1 / iscale * self._box.dscale)
+			cr.set_source_surface(image)
+			cr.fill()
+			cr.restore()
 
-		image = result[0]
-		iscale = result[1]
-		x_offset = result[2]
-		y_offset = result[3]
-		cr.translate(self.x, self.y)
-		cr.rectangle(0, 0, self.width, self.height)
-		cr.translate(x_offset, y_offset)
-		cr.scale(1 / iscale * self._box.dscale, 1 / iscale * self._box.dscale)
-		cr.set_source_surface(image)
-		cr.fill()
+		if self.get_canvas().outlines:
+			cr.save()
+			lw = _LINE_WIDTH / scale
+			cr.set_line_width(lw)
+			cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)
+			if not self.has_focus:
+				cr.set_source_rgba(1.0, 0, 0, 0.8)
+			else:
+				cr.set_source_rgba(0, 0, 1.0, 0.8)
+			cr.stroke()
+			cr.restore()
 
-		cr.restore()
 
 class Page(goocanvas.ItemSimple, goocanvas.Item):
 	__gtype_name__ = "PDFBuildPage"
