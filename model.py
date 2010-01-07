@@ -80,10 +80,6 @@ class Box(gobject.GObject):
 		self._dx = 0
 		self._dy = 0
 		
-		# This can be true or false, ie. switches the "color" used
-		# for layout purposes
-		self.colored = False
-
 	def get_sx(self):
 		return self._sx
 	def set_sx(self, value):
