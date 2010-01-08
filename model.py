@@ -257,7 +257,9 @@ class Model(gobject.GObject):
 			png = os.path.join(tmpdir, "%i.png" % page)
 			tif = os.path.join(tmpdir, "%i.tif" % page)
 			surface.write_to_png(png)
-			os.spawnv(os.P_WAIT, '/usr/bin/convert', ['convert', png, '-monochrome', tif])
+			# We need to use Group4, or some programs cannot handle the file!
+			# We also need to force a resolution of 300 dpi on the tiff (the pngs are wrong)
+			os.spawnv(os.P_WAIT, '/usr/bin/convert', ['convert', png, '-units', 'PixelsPerInch', '-density', '300', '-monochrome', '-compress', 'Group4', tif])
 			os.unlink(png)
 		
 		self.sort_boxes()
