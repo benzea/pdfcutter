@@ -281,6 +281,7 @@ class Model(gobject.GObject):
 		layout.set_text(self.header_text)
 		layout.set_font_description(font)
 		cr.move_to(PADDING, PADDING)
+		cr.set_source_rgb(0, 0, 0)
 		cr.show_layout(layout)
 
 		progress = 0
@@ -295,11 +296,12 @@ class Model(gobject.GObject):
 				layout.set_text(self.header_text)
 				layout.set_font_description(font)
 				cr.move_to(PADDING, PADDING - 2)
+				cr.set_source_rgb(0, 0, 0)
 				cr.show_layout(layout)
 			cr.save()
 			cr.translate(+box.dx, +box.dy)
 			cr.scale(box.dscale, box.dscale)
-			cr.rectangle(0, 0, box.width, box.height)
+			cr.rectangle(0, 0, box.width*box.dscale, box.height*box.dscale)
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
 			self._document_lock.acquire()
@@ -342,6 +344,7 @@ class Model(gobject.GObject):
 		layout.set_text(self.header_text)
 		layout.set_font_description(font)
 		cr.move_to(PADDING, PADDING)
+		cr.set_source_rgb(0, 0, 0)
 		cr.show_layout(layout)
 
 		progress = 0
@@ -354,6 +357,7 @@ class Model(gobject.GObject):
 				layout.set_text(self.header_text)
 				layout.set_font_description(font)
 				cr.move_to(PADDING, PADDING - 2)
+				cr.set_source_rgb(0, 0, 0)
 				cr.show_layout(layout)
 			cr.save()
 			cr.translate(+box.dx, +box.dy)
