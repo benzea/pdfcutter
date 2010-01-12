@@ -195,7 +195,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 		max_scale = \
 		    min((self._canvas._pages[self._box.dpage].width - self._box.dx) / float(self._box.width),
-		        (self._canvas._pages[self._box.dpage].height - self._box.dy) / float(self._box.width),)
+		        (self._canvas._pages[self._box.dpage].height - self._box.dy) / float(self._box.height))
 
 		scale_x = (x_pos - self._box.dx) / float(self._box.width)
 		scale_y = (y_pos - self._box.dy) / float(self._box.height)
