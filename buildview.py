@@ -505,8 +505,12 @@ class BuildView(goocanvas.Canvas):
 			pass
 
 	def _scroll_to_box(self, box):
-		self._vadjustment.clamp_page(box.y, box.y + box.height)
-		self._hadjustment.clamp_page(box.x, box.x + box.width)
+		x = box.x * self.get_scale()
+		y = box.y * self.get_scale()
+		w = box.width * self.get_scale()
+		h = box.height * self.get_scale()
+		self._vadjustment.clamp_page(y, y + h)
+		self._hadjustment.clamp_page(x, x + w)
 
 	def _header_text_changed_cb(self, model):
 		self.queue_draw()
