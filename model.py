@@ -301,7 +301,7 @@ class Model(gobject.GObject):
 			cr.save()
 			cr.translate(+box.dx, +box.dy)
 			cr.scale(box.dscale, box.dscale)
-			cr.rectangle(0, 0, box.width*box.dscale, box.height*box.dscale)
+			cr.rectangle(0, 0, box.width, box.height)
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
 			self._document_lock.acquire()
