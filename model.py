@@ -353,6 +353,7 @@ class Model(gobject.GObject):
 			while box.dpage > page:
 				page += 1
 				cr.show_page()
+				surface.set_size(width, height)
 				layout = cr.create_layout()
 				layout.set_text(self.header_text)
 				layout.set_font_description(font)
