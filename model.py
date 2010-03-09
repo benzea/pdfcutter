@@ -398,12 +398,12 @@ class Model(gobject.GObject):
 				page = b.dpage
 				ypos = PADDING
 
-			if b.dx > box.dx + box.width or \
-			   b.dx + b.width < box.dx:
+			if b.dx > box.dx + box.width * box.dscale or \
+			   b.dx + b.width * b.dscale < box.dx:
 				continue
-			ypos = max(ypos, b.dy + b.height)
+			ypos = max(ypos, b.dy + b.height * b.dscale)
 		width, height = self.document.get_page(0).get_size()
-		if ypos + box.height > height - PADDING:
+		if ypos + box.height * box.dscale > height - PADDING:
 			page += 1
 			ypos = PADDING
 		box.dy = ypos
