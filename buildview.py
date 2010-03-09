@@ -286,9 +286,9 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			width = extends[4]
 			wscale = (self.width * 0.8) / width
 			hscale = (self.height * 0.8) / height
-			scale = min(hscale, wscale)
-			cr.translate(- width * scale / 2.0 - extends[0] * scale, - height * scale / 2.0 - extends[1] * scale)
-			cr.scale(scale, scale)
+			nscale = min(hscale, wscale)
+			cr.translate(- width * nscale / 2.0 - extends[0] * nscale, - height * nscale / 2.0 - extends[1] * nscale)
+			cr.scale(nscale, nscale)
 
 			cr.move_to(0, 0)
 			cr.show_text("Loading ...")
