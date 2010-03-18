@@ -277,27 +277,23 @@ class Model(gobject.GObject):
 		font.set_weight(pango.WEIGHT_BOLD)
 		page = 0
 
-		layout = cr.create_layout()
-		layout.set_text(self.header_text)
-		layout.set_font_description(font)
-		cr.move_to(PADDING, PADDING)
-		cr.set_source_rgb(0, 0, 0)
-		cr.show_layout(layout)
+		def show_text():
+			layout = cr.create_layout()
+			layout.set_text(self.header_text)
+			layout.set_font_description(font)
+			cr.move_to(PADDING, PADDING)
+			cr.set_source_rgb(0, 0, 0)
+			cr.show_layout(layout)
 
 		progress = 0
 		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *pbargs)
 		for box in self.iter_boxes():
 			while box.dpage > page:
 				page += 1
+				show_text()
 				write_tif(surface, tmpdir, page)
 				cr.set_source_rgb(1, 1, 1)
 				cr.paint()
-				layout = cr.create_layout()
-				layout.set_text(self.header_text)
-				layout.set_font_description(font)
-				cr.move_to(PADDING, PADDING - 2)
-				cr.set_source_rgb(0, 0, 0)
-				cr.show_layout(layout)
 			cr.save()
 			cr.translate(+box.dx, +box.dy)
 			cr.scale(box.dscale, box.dscale)
@@ -313,6 +309,7 @@ class Model(gobject.GObject):
 			gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes)+1, *pbargs)
 
 		page += 1
+		show_text()
 		write_tif(surface, tmpdir, page)
 		
 		input = [ os.path.join(tmpdir, "%i.tif" % i) for i in xrange(1, page+1) ]
@@ -340,26 +337,22 @@ class Model(gobject.GObject):
 		font.set_weight(pango.WEIGHT_BOLD)
 		page = 0
 
-		layout = cr.create_layout()
-		layout.set_text(self.header_text)
-		layout.set_font_description(font)
-		cr.move_to(PADDING, PADDING)
-		cr.set_source_rgb(0, 0, 0)
-		cr.show_layout(layout)
+		def show_text():
+			layout = cr.create_layout()
+			layout.set_text(self.header_text)
+			layout.set_font_description(font)
+			cr.move_to(PADDING, PADDING)
+			cr.set_source_rgb(0, 0, 0)
+			cr.show_layout(layout)
 
 		progress = 0
 		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
 		for box in self.iter_boxes():
 			while box.dpage > page:
 				page += 1
+				show_text()
 				cr.show_page()
 				surface.set_size(width, height)
-				layout = cr.create_layout()
-				layout.set_text(self.header_text)
-				layout.set_font_description(font)
-				cr.move_to(PADDING, PADDING - 2)
-				cr.set_source_rgb(0, 0, 0)
-				cr.show_layout(layout)
 			cr.save()
 			cr.translate(+box.dx, +box.dy)
 			cr.scale(box.dscale, box.dscale)
@@ -373,6 +366,8 @@ class Model(gobject.GObject):
 
 			progress += 1
 			gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+
+		show_text()
 		# done ...
 		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
 
