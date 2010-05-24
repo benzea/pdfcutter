@@ -27,7 +27,6 @@ import sys
 from pdfview import PDFView
 from buildview import BuildView
 from model import Model
-from cutter import Cutter
 
 dir = os.path.dirname(__file__)
 sys.path.append(dir)
