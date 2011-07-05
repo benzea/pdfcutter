@@ -169,6 +169,20 @@ class Box(gobject.GObject):
 			return 1
 		return 0
 
+	# We need to implement them as NotImplemented
+	def __lt__(self, other):
+		return NotImplemented
+	def __le__(self, other):
+		return NotImplemented
+	def __eq__(self, other):
+		return NotImplemented
+	def __ne__(self, other):
+		return NotImplemented
+	def __gt__(self, other):
+		return NotImplemented
+	def __ge__(self, other):
+		return NotImplemented
+
 class Model(gobject.GObject):
 	__gtype_name__ = 'PDFCutterModel'
 	__gsignals__ = {
@@ -331,6 +345,8 @@ class Model(gobject.GObject):
 		self.sort_boxes()
 		width, height = self.document.get_page(0).get_size()
 		surface = cairo.PDFSurface(filename, width, height)
+		# Fallback resolution
+		surface.set_fallback_resolution(300, 300)
 		cr = cairo.Context(surface)
 		cr = pangocairo.CairoContext(cr)
 		font = pango.FontDescription(HEADER_FONT)
