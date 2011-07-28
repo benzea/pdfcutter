@@ -159,30 +159,6 @@ class Box(gobject.GObject):
 	dpage = gobject.property(type=int, getter=get_dpage, setter=set_dpage)
 	dscale = gobject.property(type=float, getter=get_dscale, setter=set_dscale)
 
-	def __eq__(self, other):
-		return self is other
-
-	def __cmp__(self, other):
-		if self.dpage < other.dpage:
-			return -1
-		if self.dpage > other.dpage:
-			return 1
-		return 0
-
-	# We need to implement them as NotImplemented
-	def __lt__(self, other):
-		return NotImplemented
-	def __le__(self, other):
-		return NotImplemented
-	def __eq__(self, other):
-		return NotImplemented
-	def __ne__(self, other):
-		return NotImplemented
-	def __gt__(self, other):
-		return NotImplemented
-	def __ge__(self, other):
-		return NotImplemented
-
 class Model(gobject.GObject):
 	__gtype_name__ = 'PDFCutterModel'
 	__gsignals__ = {
@@ -275,7 +251,7 @@ class Model(gobject.GObject):
 			# We also need to force a resolution of 300 dpi on the tiff (the pngs are wrong)
 			os.spawnv(os.P_WAIT, '/usr/bin/convert', ['convert', png, '-units', 'PixelsPerInch', '-density', '300', '-monochrome', '-compress', 'Group4', tif])
 			os.unlink(png)
-		
+
 		self.sort_boxes()
 		width, height = self.document.get_page(0).get_size()
 		width_px = int(width / 72.0 * 300)
@@ -398,12 +374,18 @@ class Model(gobject.GObject):
 			yield box
 
 	def sort_boxes(self):
-		self._boxes.sort()
+		prev_sorting = list(self._boxes)
+		self._boxes.sort(key=lambda box: box.dpage)
+		# Simple (and really stupid) algorithm ... ie. emit
+		# z-pos change for every item where the index has changed.
+		for i in range(len(prev_sorting)):
+			if prev_sorting[i] != self._boxes[i]:
+				self.emit("box-zpos-changed", prev_sorting[i])
 
 	def add_box(self, box):
 		ypos = PADDING
 		page = 0
-		self._boxes.sort()
+		self.sort_boxes()
 		for b in self._boxes:
 			if b.dpage > page:
 				page = b.dpage
@@ -441,7 +423,7 @@ class Model(gobject.GObject):
 			_ = self._boxes[index-1]
 			self._boxes[index-1] = self._boxes[index]
 			self._boxes[index] = _
-		self.emit("box-zpos-changed", box)
+			self.emit("box-zpos-changed", box)
 
 	def move_box_up(self, box):
 		index = self._boxes.index(box)
@@ -449,7 +431,7 @@ class Model(gobject.GObject):
 			_ = self._boxes[index+1]
 			self._boxes[index+1] = self._boxes[index]
 			self._boxes[index] = _
-		self.emit("box-zpos-changed", box)
+			self.emit("box-zpos-changed", box)
 
 	def save_to_file(self, filename):
 		self.loadfile = filename
