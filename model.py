@@ -291,7 +291,7 @@ class Model(gobject.GObject):
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
 			self._document_lock.acquire()
-			self.document.get_page(box.spage).render_for_printing(cr)
+			self.document.get_page(box.spage).render(cr)
 			self._document_lock.release()
 			cr.restore()
 
