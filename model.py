@@ -291,6 +291,7 @@ class Model(gobject.GObject):
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
 			self._document_lock.acquire()
+			# Use render instead of render_for_printing because of bug #44002
 			self.document.get_page(box.spage).render(cr)
 			self._document_lock.release()
 			cr.restore()
@@ -352,7 +353,8 @@ class Model(gobject.GObject):
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
 			self._document_lock.acquire()
-			self.document.get_page(box.spage).render_for_printing(cr)
+			# Use render instead of render_for_printing because of bug #44002
+			self.document.get_page(box.spage).render(cr)
 			self._document_lock.release()
 			cr.restore()
 
