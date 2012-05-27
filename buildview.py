@@ -89,13 +89,20 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 	def do_button_press_event(self, target, event):
 		if event.button == 1:
-			self._drag_active = True
-			self._drag_edge = self._get_edge(event.x, event.y)
-			self._mouse_x = event.x
-			self._mouse_y = event.y
-			self._box_start_x = self._box.dx
-			self._box_start_y = self._box.dy
-			self._canvas.grab_focus(self)
+			drag_edge = self._get_edge(event.x, event.y)
+
+			if drag_edge in (_BOX, _EDGE_RIGHT | _EDGE_BOTTOM):
+				self._drag_active = True
+				self._drag_edge = drag_edge
+				self._mouse_x = event.x
+				self._mouse_y = event.y
+				self._box_start_x = self._box.dx
+				self._box_start_y = self._box.dy
+				self._canvas.grab_focus(self)
+
+				return True
+			else:
+				return False
 
 	def do_button_release_event(self, target, event):
 		if event.button == 1 and self._drag_active:
@@ -182,7 +189,8 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		elif self._drag_edge == _EDGE_RIGHT | _EDGE_BOTTOM:
 			self._scale_box(event)
 		else:
-			raise AssertionError
+			# We are not handling this event
+			return False
 
 		return True
 
