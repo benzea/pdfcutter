@@ -53,11 +53,13 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 	def do_focus_in_event(self, target_item, event):
 		if target_item == self:
 			self.has_focus = True
+			self._canvas._focus_in(self)
 			self._canvas.request_redraw(self.bounds)
 
 	def do_focus_out_event(self, target_item, event):
 		if target_item == self:
 			self.has_focus = False
+			self._canvas._focus_out(self)
 			self._canvas.request_redraw(self.bounds)
 
 	def do_simple_create_path(self, cr):
@@ -87,59 +89,80 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		self._canvas.request_update()
 		self._canvas.request_redraw(self.bounds)
 
+	def update_start_position(self):
+		self._box_start_x = self._box.dx
+		self._box_start_y = self._box.dy
+
 	def do_button_press_event(self, target, event):
 		if event.button == 1:
-			drag_edge = self._get_edge(event.x, event.y)
+			self._drag_active = True
+			self._drag_edge = self._get_edge(event.x, event.y)
+			self._mouse_x = event.x
+			self._mouse_y = event.y
+			self._motion_happened = False
+			self._no_motion_grab_focus = False
 
-			if drag_edge in (_BOX, _EDGE_RIGHT | _EDGE_BOTTOM):
-				self._drag_active = True
-				self._drag_edge = drag_edge
-				self._mouse_x = event.x
-				self._mouse_y = event.y
-				self._box_start_x = self._box.dx
-				self._box_start_y = self._box.dy
-				self._canvas.grab_focus(self)
-
-				return True
+			if not self.has_focus and not self._canvas._item_in_focus_group(self):
+				if event.state & gtk.gdk.SHIFT_MASK:
+						self._canvas._add_item_to_focus_group(self)
+				else:
+					self._canvas.grab_focus(self)
 			else:
-				return False
+				# We still grab the focus if there was no motion, and shift
+				# has not been pressed!
+				if not (event.state & gtk.gdk.SHIFT_MASK):
+					self._no_motion_grab_focus = True
+
+			for item in self._canvas._iter_focused_items():
+				item.update_start_position()
 
 	def do_button_release_event(self, target, event):
 		if event.button == 1 and self._drag_active:
 			self._drag_active = False
 
+			if self._no_motion_grab_focus and not self._motion_happened:
+				self._canvas.grab_focus(self)
+
 	def do_key_press_event(self, target, event):
 		keyname = gtk.gdk.keyval_name(event.keyval)
-		max_x = self._canvas._pages[self._box.dpage].width
-		max_y = self._canvas._pages[self._box.dpage].height
 
-		max_x -= self.width
-		max_y -= self.height
+		handled = False
 
-		if keyname == 'Delete':
-			self._canvas._model.remove_box(self._box)
-			return True
-		elif keyname == 'Left':
-			self._box.dx = max(0, self._box.dx - 72.0 / 25.4)
-			return True
-		elif keyname == 'Right':
-			self._box.dx = min(max_x, self._box.dx + 72.0 / 25.4)
-			return True
-		elif keyname == 'Up':
-			self._box.dy = max(0, self._box.dy - 72.0 / 25.4)
-			return True
-		elif keyname == 'Down':
-			self._box.dy = min(max_y, self._box.dy + 72.0 / 25.4)
-			return True
-		elif keyname == 'minus':
-			self._canvas._model.move_box_down(self._box)
-			return True
+		# Do the same thing for all focused items.
+		for item in self._canvas._iter_focused_items():
+			max_x = item._canvas._pages[item._box.dpage].width
+			max_y = item._canvas._pages[item._box.dpage].height
+
+			max_x -= item.width
+			max_y -= item.height
+
+			if keyname == 'Delete':
+				item._canvas._model.remove_box(item._box)
+				handled = True
+			elif keyname == 'Left':
+				item._box.dx = max(0, item._box.dx - 72.0 / 25.4)
+				handled = True
+			elif keyname == 'Right':
+				item._box.dx = min(max_x, item._box.dx + 72.0 / 25.4)
+				handled = True
+			elif keyname == 'Up':
+				item._box.dy = max(0, item._box.dy - 72.0 / 25.4)
+				handled = True
+			elif keyname == 'Down':
+				item._box.dy = min(max_y, item._box.dy + 72.0 / 25.4)
+				handled = True
+			elif keyname == 'equal':
+				item._box.dscale = 1.0
+				handled = True
+
+		if keyname == 'minus':
+			self._canvas._model.move_boxes_down([item._box for item in self._canvas._iter_focused_items()])
+			handled = True
 		elif keyname == 'plus':
-			self._canvas._model.move_box_up(self._box)
-			return True
-		elif keyname == 'equal':
-			self._box.dscale = 1.0
-			return True
+			self._canvas._model.move_boxes_up([item._box for item in self._canvas._iter_focused_items()])
+			handled = True
+
+		return handled
 
 	def _get_edge(self, x, y):
 		edge = 0
@@ -184,6 +207,8 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		if not self._drag_active:
 			return True
 
+		self._motion_happened = True
+
 		if self._drag_edge == _BOX:
 			self._drag_box(event)
 		elif self._drag_edge == _EDGE_RIGHT | _EDGE_BOTTOM:
@@ -191,6 +216,8 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		else:
 			# We are not handling this event
 			return False
+
+		self._canvas._scroll_to_box(self)
 
 		return True
 
@@ -218,24 +245,33 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 		if event.y < self._canvas._pages[self._box.dpage].y - _PADDING:
 			if self._box.dpage > 0:
-				self._box.dpage -= 1
-				self._mouse_y -= _PADDING + max_y
+				for item in self._canvas._iter_focused_items():
+					item._box.dpage -= 1
+					item._mouse_y -= _PADDING + max_y
 		elif event.y > self._canvas._pages[self._box.dpage].y + \
 		               self._canvas._pages[self._box.dpage].height + \
 		               _PADDING:
-			self._box.dpage += 1
-			self._mouse_y += _PADDING + max_y
+			for item in self._canvas._iter_focused_items():
+				item._box.dpage += 1
+				item._mouse_y += _PADDING + max_y
 
 		dx = event.x - self._mouse_x
 		dy = event.y - self._mouse_y
 
-		new_x = self._box.dx + dx
-		new_y = self._box.dy + dy
+		for item in self._canvas._iter_focused_items():
+			item.move_box_relative_to_start(event.state, dx, dy)
+
+	def move_box_relative_to_start(self, mod_state, dx, dy):
+		max_x = self._canvas._pages[self._box.dpage].width
+		max_y = self._canvas._pages[self._box.dpage].height
+
+		new_x = self._box_start_x + dx
+		new_y = self._box_start_y + dy
 
 		self._box.dx = max(0, min(new_x, max_x - self.width))
 		self._box.dy = max(0, min(new_y, max_y - self.height))
 
-		if event.state & gtk.gdk.CONTROL_MASK:
+		if mod_state & gtk.gdk.CONTROL_MASK:
 			move_x = self._box.dx - self._box_start_x
 			move_y = self._box.dy - self._box_start_y
 
@@ -251,7 +287,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			self._box.dx = self._box_start_x + move_x
 			self._box.dy = self._box_start_y + move_y
 
-		if event.state & gtk.gdk.SHIFT_MASK:
+		if mod_state & gtk.gdk.SHIFT_MASK:
 			move_x = abs(self._box.dx - self._box_start_x)
 			move_y = abs(self._box.dy - self._box_start_y)
 			if move_x > move_y:
@@ -262,8 +298,8 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		dx -= new_x - self._box.dx
 		dy -= new_y - self._box.dy
 
-		self._mouse_x += dx
-		self._mouse_y += dy
+		#self._mouse_x += dx
+		#self._mouse_y += dy
 
 	def do_simple_paint(self, cr, bounds):
 		pass
@@ -319,7 +355,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			lw = _LINE_WIDTH / scale
 			cr.set_line_width(lw)
 			cr.rectangle(self.x + lw/2, self.y + lw/2, self.width - lw, self.height - lw)
-			if not self.has_focus:
+			if not self.has_focus and not self._canvas._item_in_focus_group(self):
 				cr.set_source_rgba(1.0, 0, 0, 0.8)
 			else:
 				cr.set_source_rgba(0, 0, 1.0, 0.8)
@@ -419,6 +455,41 @@ class BuildView(goocanvas.Canvas):
 		self._vadjustment = None
 		self.props.redraw_when_scrolled = True
 
+		self._focused_item = None
+		self._focus_list = []
+
+	def _add_item_to_focus_group(self, item):
+		if item is not self._focused_item and item not in self._focus_list:
+			self.request_redraw(item.bounds)
+			self._focus_list.append(item)
+
+	def _item_in_focus_group(self, item):
+		return item in self._focus_list
+
+	def _iter_focused_items(self):
+		if self._focused_item is None:
+			return
+		yield self._focused_item
+
+		for item in self._focus_list:
+			yield item
+
+	def _focus_in(self, item):
+		self._focused_item = item
+
+		for item in self._focus_list:
+			# They need redrawing
+			self.request_redraw(item.bounds)
+		self._focus_list = []
+
+	def _focus_out(self, item):
+		self._focused_item = None
+
+		for item in self._focus_list:
+			# They need redrawing
+			self.request_redraw(item.bounds)
+		self._focus_list = []
+
 	def _set_scroll_adjustments_cb(self, canvas, hadjustment, vadjustment):
 		self._hadjustment = hadjustment
 		self._vadjustment = vadjustment
@@ -427,6 +498,7 @@ class BuildView(goocanvas.Canvas):
 		if self._model:
 			self._model.disconnect(self._page_rendered_id)
 			self._model.disconnect(self._box_changed_id)
+			self._model.disconnect(self._box_zpos_changed_id)
 			self._model.disconnect(self._box_added_id)
 			self._model.disconnect(self._box_removed_id)
 			self._model.disconnect(self._header_text_changed_id)
@@ -434,7 +506,7 @@ class BuildView(goocanvas.Canvas):
 		self._model = model
 		self._page_rendered_id = self._model.connect("box-rendered", self._box_rendered_cb)
 		self._box_changed_id = self._model.connect("box-changed", self._box_changed_cb)
-		self._box_changed_id = self._model.connect("box-zpos-changed", self._box_zpos_changed_cb)
+		self._box_zpos_changed_id = self._model.connect("box-zpos-changed", self._box_zpos_changed_cb)
 		self._box_added_id = self._model.connect("box-added", self._box_added_cb)
 		self._box_removed_id = self._model.connect("box-removed", self._box_removed_cb)
 		self._header_text_changed_id = self._model.connect("header-text-changed", self._header_text_changed_cb)

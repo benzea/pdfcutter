@@ -419,6 +419,24 @@ class Model(gobject.GObject):
 		else:
 			return None
 
+	def move_boxes_down(self, boxes):
+		tmp = []
+		for box in boxes:
+			tmp.append((self._boxes.index(box), box))
+		tmp.sort()
+
+		for index, box in tmp:
+			self.move_box_down(box)
+
+	def move_boxes_up(self, boxes):
+		tmp = []
+		for box in boxes:
+			tmp.append((self._boxes.index(box), box))
+		tmp.sort(reverse=True)
+
+		for index, box in tmp:
+			self.move_box_up(box)
+
 	def move_box_down(self, box):
 		index = self._boxes.index(box)
 		if index > 0 and self._boxes[index-1].dpage == box.dpage:
