@@ -58,6 +58,7 @@ def relpath(path, start=os.path.curdir):
 	return os.path.join(*rel_list)
 
 PADDING = 10*72/25.4
+TOP_PADDING = 17*72/25.4
 
 HEADER_FONT = 'Bitstream Vera Serif 10'
 
@@ -385,7 +386,7 @@ class Model(gobject.GObject):
 				self.emit("box-zpos-changed", prev_sorting[i])
 
 	def add_box(self, box):
-		ypos = PADDING
+		ypos = TOP_PADDING
 		page = 0
 		self.sort_boxes()
 		for b in self._boxes:
@@ -400,7 +401,7 @@ class Model(gobject.GObject):
 		width, height = self.document.get_page(0).get_size()
 		if ypos + box.height * box.dscale > height - PADDING:
 			page += 1
-			ypos = PADDING
+			ypos = TOP_PADDING
 		box.dy = ypos
 		box.dpage = page
 
