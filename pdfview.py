@@ -18,9 +18,10 @@
 
 
 import cairo
-import gtk
-import goocanvas
-import gobject
+from gi.repository import Gtk
+from gi.repository import Gdk
+from gi.repository import GooCanvas
+from gi.repository import GObject
 import model
 import math
 
@@ -31,7 +32,7 @@ _EDGE_LEFT = 8
 _EDGE_RIGHT = 16
 _LINE_WIDTH = 2
 
-class Box(goocanvas.ItemSimple, goocanvas.Item):
+class Box(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 	__gtype_name__ = "PDFViewBox"
 	def __init__(self, canvas, box, **kwargs):
 		super(Box, self).__init__(**kwargs)
@@ -65,10 +66,10 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		self.x += page.x
 		self.y += page.y
 
-		self.bounds_x1 = self.x
-		self.bounds_x2 = self.x + self.width
-		self.bounds_y1 = self.y
-		self.bounds_y2 = self.y + self.height
+		self.bounds.x1 = self.x
+		self.bounds.x2 = self.x + self.width
+		self.bounds.y1 = self.y
+		self.bounds.y2 = self.y + self.height
 
 		self._canvas.request_update()
 		self._canvas.request_redraw(self.bounds)
@@ -94,7 +95,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 	def do_button_press_event(self, target, event):
 		if event.button == 1:
-			if event.state & gtk.gdk.CONTROL_MASK:
+			if event.state & Gdk.ModifierType.CONTROL_MASK:
 				self._canvas._model.remove_box(self._box)
 				return True
 
@@ -111,29 +112,29 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 	def do_motion_notify_event(self, target, event):
 		edge = self._get_edge(event.x, event.y)
 		if edge == _EDGE_TOP:
-			cursor = gtk.gdk.TOP_SIDE
+			cursor = Gdk.CursorType.TOP_SIDE
 		elif edge == _EDGE_BOTTOM:
-			cursor = gtk.gdk.BOTTOM_SIDE
+			cursor = Gdk.CursorType.BOTTOM_SIDE
 		elif edge == _EDGE_LEFT:
-			cursor = gtk.gdk.LEFT_SIDE
+			cursor = Gdk.CursorType.LEFT_SIDE
 		elif edge == _EDGE_RIGHT:
-			cursor = gtk.gdk.RIGHT_SIDE
+			cursor = Gdk.CursorType.RIGHT_SIDE
 		elif edge == _EDGE_RIGHT | _EDGE_TOP:
-			cursor = gtk.gdk.TOP_RIGHT_CORNER
+			cursor = Gdk.CursorType.TOP_RIGHT_CORNER
 		elif edge == _EDGE_RIGHT | _EDGE_BOTTOM:
-			cursor = gtk.gdk.BOTTOM_RIGHT_CORNER
+			cursor = Gdk.CursorType.BOTTOM_RIGHT_CORNER
 		elif edge == _EDGE_LEFT | _EDGE_TOP:
-			cursor = gtk.gdk.TOP_LEFT_CORNER
+			cursor = Gdk.CursorType.TOP_LEFT_CORNER
 		elif edge == _EDGE_LEFT | _EDGE_BOTTOM:
-			cursor = gtk.gdk.BOTTOM_LEFT_CORNER
+			cursor = Gdk.CursorType.BOTTOM_LEFT_CORNER
 		elif edge == _BOX:
-			cursor = gtk.gdk.FLEUR
+			cursor = Gdk.CursorType.FLEUR
 		else:
 			cursor = None
 
 		if cursor:
-			cursor = gtk.gdk.Cursor(self._canvas.get_display(), cursor)
-		self._canvas.window.set_cursor(cursor)
+			cursor = Gdk.Cursor(self._canvas.get_display(), cursor)
+		self._canvas.get_window().set_cursor(cursor)
 
 		if not self._drag_active:
 			return False
@@ -197,7 +198,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		cr.set_source_rgba(1.0, 0, 0, 0.8)
 		cr.stroke()
 
-class Page(goocanvas.ItemSimple, goocanvas.Item):
+class Page(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 	__gtype_name__ = "PDFViewPage"
 	
 	def __init__(self, model, page, x, y, **kwargs):
@@ -287,7 +288,7 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 			cr.restore()
 
 	def do_key_press_event(self, target, event):
-		if gtk.gdk.keyval_name(event.keyval) == 'Escape':
+		if Gdk.keyval_name(event.keyval) == 'Escape':
 			self._drag_active = False
 
 	def do_button_press_event(self, target, event):
@@ -318,30 +319,22 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 			self.get_canvas().request_redraw(self.bounds)
 
 	def do_motion_notify_event(self, target, event):
-		self.get_canvas().window.set_cursor(None)
+		self.get_canvas().get_window().set_cursor(None)
 		if self._drag_active:
 			self._drag_end_x = event.x
 			self._drag_end_y = event.y
 			self.get_canvas().request_redraw(self.bounds)
 
-class PDFView(goocanvas.Canvas):
+class PDFView(GooCanvas.Canvas):
 	__gtype_name__ = 'PDFView'
 
 	def __init__(self):
-		# Pass __init__ up
-		goocanvas.GroupModel.__init__(self)
+		GooCanvas.Canvas.__init__(self)
 		self._model = None
 		self._root = self.get_root_item()
 		self._pages = []
 		self._boxes = {}
-		self.connect("set-scroll-adjustments", self._set_scroll_adjustments_cb)
-		self._hadjustment = None
-		self._vadjustment = None
 		self.props.redraw_when_scrolled = True
-
-	def _set_scroll_adjustments_cb(self, canvas, hadjustment, vadjustment):
-		self._hadjustment = hadjustment
-		self._vadjustment = vadjustment
 
 	def set_model(self, model):
 		if self._model:
@@ -387,7 +380,7 @@ class PDFView(goocanvas.Canvas):
 	def get_model(self):
 		return self._model
 
-	model = gobject.property(type=object, setter=set_model, getter=get_model)
+	model = GObject.property(type=object, setter=set_model, getter=get_model)
 
 	def _page_rendered_cb(self, model, page):
 		self.request_redraw(self._pages[page].get_bounds())
@@ -403,30 +396,30 @@ class PDFView(goocanvas.Canvas):
 		dbox.remove()
 
 	def do_scroll_event(self, event):
-		if not event.state & gtk.gdk.CONTROL_MASK:
+		if not event.state & Gdk.ModifierType.CONTROL_MASK:
 			return False
 
-		if event.direction == gtk.gdk.SCROLL_UP:
+		if event.direction == Gdk.ScrollDirection.UP:
 			zoom = 1.25
-		elif event.direction == gtk.gdk.SCROLL_DOWN:
+		elif event.direction == Gdk.ScrollDirection.DOWN:
 			zoom = 0.8
 		else:
 			return False
 
-		if self._hadjustment and self._vadjustment:
-			# We cannot use x and y because those are wrong if a lot of
-			# events come in fast
-			mouse_x, mouse_y = event.x_root, event.y_root
-			origin_x, origin_y = self.window.get_origin()
-			mouse_x -= origin_x
-			mouse_y -= origin_y
-			mouse_x, mouse_y = self.convert_from_pixels(mouse_x, mouse_y)
+		if self.get_hadjustment() and self.get_vadjustment():
+		    # We cannot use x and y because those are wrong if a lot of
+		    # events come in fast
+		    mouse_x, mouse_y = event.x_root, event.y_root
+		    origin_x, origin_y, dummy = self.get_window().get_origin()
+		    mouse_x -= origin_x
+		    mouse_y -= origin_y
+		    mouse_x, mouse_y = self.convert_from_pixels(mouse_x, mouse_y)
 
-			top_x, top_y = \
-			    self.convert_from_pixels(self._hadjustment.get_value(),
-			                             self._vadjustment.get_value())
-			x = top_x + mouse_x
-			y = top_y + mouse_y
+		    top_x, top_y = \
+		        self.convert_from_pixels(self.get_hadjustment().get_value(),
+		                                 self.get_vadjustment().get_value())
+		    x = top_x + mouse_x
+		    y = top_y + mouse_y
 
 		scale = self.get_scale()
 		
@@ -438,7 +431,7 @@ class PDFView(goocanvas.Canvas):
 		scale *= zoom
 		self.set_scale(scale)
 
-		if self._hadjustment and self._vadjustment:
+		if self.get_hadjustment() and self.get_vadjustment():
 			mouse_x /= zoom
 			mouse_y /= zoom
 

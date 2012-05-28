@@ -18,11 +18,12 @@
 
 
 import cairo
-import pango
-import pangocairo
-import gtk
-import goocanvas
-import gobject
+from gi.repository import Pango
+from gi.repository import PangoCairo
+from gi.repository import Gtk
+from gi.repository import Gdk
+from gi.repository import GooCanvas
+from gi.repository import GObject
 import model
 import math
 
@@ -34,7 +35,7 @@ _EDGE_RIGHT = 16
 _LINE_WIDTH = 2
 _PADDING = 5
 
-class Box(goocanvas.ItemSimple, goocanvas.Item):
+class Box(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 	__gtype_name__ = "PDFBuildBox"
 	def __init__(self, canvas, box, **kwargs):
 		super(Box, self).__init__(**kwargs)
@@ -73,6 +74,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 	def update_pos(self):
 		self._canvas.request_redraw(self.bounds)
+
 		page = self._canvas._pages[self._box.dpage]
 		self.x = self._box.dx
 		self.y = self._box.dy
@@ -81,10 +83,10 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		self.x += page.x
 		self.y += page.y
 
-		self.bounds_x1 = self.x
-		self.bounds_x2 = self.x + self.width
-		self.bounds_y1 = self.y
-		self.bounds_y2 = self.y + self.height
+		self.bounds.x1 = self.x
+		self.bounds.x2 = self.x + self.width
+		self.bounds.y1 = self.y
+		self.bounds.y2 = self.y + self.height
 
 		self._canvas.request_update()
 		self._canvas.request_redraw(self.bounds)
@@ -103,14 +105,14 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			self._no_motion_grab_focus = False
 
 			if not self.has_focus and not self._canvas._item_in_focus_group(self):
-				if event.state & gtk.gdk.SHIFT_MASK:
+				if event.state & Gdk.ModifierType.SHIFT_MASK:
 						self._canvas._add_item_to_focus_group(self)
 				else:
 					self._canvas.grab_focus(self)
 			else:
 				# We still grab the focus if there was no motion, and shift
 				# has not been pressed!
-				if not (event.state & gtk.gdk.SHIFT_MASK):
+				if not (event.state & Gdk.ModifierType.SHIFT_MASK):
 					self._no_motion_grab_focus = True
 
 			for item in self._canvas._iter_focused_items():
@@ -124,7 +126,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 				self._canvas.grab_focus(self)
 
 	def do_key_press_event(self, target, event):
-		keyname = gtk.gdk.keyval_name(event.keyval)
+		keyname = Gdk.keyval_name(event.keyval)
 
 		handled = False
 
@@ -190,19 +192,19 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		if not self._drag_active:
 			# Only do bottom right corner for resize for now ...
 			if edge == _EDGE_RIGHT | _EDGE_BOTTOM:
-				cursor = gtk.gdk.BOTTOM_RIGHT_CORNER
+				cursor = Gdk.CursorType.BOTTOM_RIGHT_CORNER
 			elif edge == _BOX:
-				cursor = gtk.gdk.FLEUR
+				cursor = Gdk.CursorType.FLEUR
 		else:
 			if self._drag_edge == _EDGE_RIGHT | _EDGE_BOTTOM:
-				cursor = gtk.gdk.BOTTOM_RIGHT_CORNER
+				cursor = Gdk.CursorType.BOTTOM_RIGHT_CORNER
 			else:
-				cursor = gtk.gdk.FLEUR
+				cursor = Gdk.CursorType.FLEUR
 
 		# This should always be not None ...
 		if cursor:
-			cursor = gtk.gdk.Cursor(self._canvas.get_display(), cursor)
-		self._canvas.window.set_cursor(cursor)
+			cursor = Gdk.Cursor(self._canvas.get_display(), cursor)
+		self._canvas.get_window().set_cursor(cursor)
 
 		if not self._drag_active:
 			return True
@@ -271,7 +273,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 		self._box.dx = max(0, min(new_x, max_x - self.width))
 		self._box.dy = max(0, min(new_y, max_y - self.height))
 
-		if mod_state & gtk.gdk.CONTROL_MASK:
+		if mod_state & Gdk.ModifierType.CONTROL_MASK:
 			move_x = self._box.dx - self._box_start_x
 			move_y = self._box.dy - self._box_start_y
 
@@ -287,7 +289,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			self._box.dx = self._box_start_x + move_x
 			self._box.dy = self._box_start_y + move_y
 
-		if mod_state & gtk.gdk.SHIFT_MASK:
+		if mod_state & Gdk.ModifierType.SHIFT_MASK:
 			move_x = abs(self._box.dx - self._box_start_x)
 			move_y = abs(self._box.dy - self._box_start_y)
 			if move_x > move_y:
@@ -297,9 +299,6 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 
 		dx -= new_x - self._box.dx
 		dy -= new_y - self._box.dy
-
-		#self._mouse_x += dx
-		#self._mouse_y += dy
 
 	def do_simple_paint(self, cr, bounds):
 		pass
@@ -363,7 +362,7 @@ class Box(goocanvas.ItemSimple, goocanvas.Item):
 			cr.restore()
 
 
-class Page(goocanvas.ItemSimple, goocanvas.Item):
+class Page(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 	__gtype_name__ = "PDFBuildPage"
 	
 	def __init__(self, model, page, x, y, **kwargs):
@@ -387,7 +386,7 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 		pass
 
 	def do_motion_notify_event(self, target, event):
-		self.get_canvas().window.set_cursor(None)
+		self.get_canvas().get_window().set_cursor(None)
 
 	def do_paint(self, cr, bounds, scale):
 		if ( bounds.x1 > self.x + self.width + 2 or \
@@ -425,34 +424,29 @@ class Page(goocanvas.ItemSimple, goocanvas.Item):
 
 
 		cr.save()
-		cr = pangocairo.CairoContext(cr)
-		font = pango.FontDescription(model.HEADER_FONT)
-		font.set_weight(pango.WEIGHT_BOLD)
-		layout = cr.create_layout()
-		layout.set_text(self._model.header_text)
+		font = Pango.FontDescription(model.HEADER_FONT)
+		font.set_weight(Pango.Weight.BOLD)
+		layout = PangoCairo.create_layout(cr)
+		layout.set_text(self._model.header_text, len(self._model.header_text))
 		layout.set_font_description(font)
 		cr.translate(self.x, self.y)
 		cr.move_to(model.PADDING, model.PADDING - 2)
-		cr.show_layout(layout)
+		PangoCairo.show_layout(cr, layout)
 		cr.show_page()
 		cr.restore()
 
 
-class BuildView(goocanvas.Canvas):
+class BuildView(GooCanvas.Canvas):
 	__gtype_name__ = 'BuildView'
 
 	def __init__(self):
-		# Pass __init__ up
-		goocanvas.GroupModel.__init__(self)
+		GooCanvas.Canvas.__init__(self)
 		self._model = None
 		self._root = self.get_root_item()
 		self._pages = []
 		self._boxes = {}
 		self._grid = True
 		self._outlines = True
-		self.connect("set-scroll-adjustments", self._set_scroll_adjustments_cb)
-		self._hadjustment = None
-		self._vadjustment = None
 		self.props.redraw_when_scrolled = True
 
 		self._focused_item = None
@@ -490,10 +484,6 @@ class BuildView(goocanvas.Canvas):
 			self.request_redraw(item.bounds)
 		self._focus_list = []
 
-	def _set_scroll_adjustments_cb(self, canvas, hadjustment, vadjustment):
-		self._hadjustment = hadjustment
-		self._vadjustment = vadjustment
-	
 	def set_model(self, model):
 		if self._model:
 			self._model.disconnect(self._page_rendered_id)
@@ -535,7 +525,10 @@ class BuildView(goocanvas.Canvas):
 		y += math.ceil(pheight + _PADDING) * len(self._pages)
 
 		page = Page(self._model, len(self._pages), x, y, fill_color="black", parent=self._root)
-		page.lower(None)
+		# XXX: Cannote move right to the top with None (wrong annotation)
+		#      So move above first page ...
+		if len(self._pages) > 0:
+			page.lower(self._pages[0])
 		self._pages.append(page)
 
 		self.set_bounds(0, 0, pwidth + 2*_PADDING, math.ceil(pheight + _PADDING) * len(self._pages) + _PADDING * 3)
@@ -573,9 +566,9 @@ class BuildView(goocanvas.Canvas):
 	def get_outlines(self):
 		return self._outlines
 
-	model = gobject.property(type=object, setter=set_model, getter=get_model)
-	grid = gobject.property(type=bool, default=True, setter=set_grid, getter=get_grid)
-	outlines = gobject.property(type=bool, default=True, setter=set_outlines, getter=get_outlines)
+	model = GObject.property(type=object, setter=set_model, getter=get_model)
+	grid = GObject.property(type=bool, default=True, setter=set_grid, getter=get_grid)
+	outlines = GObject.property(type=bool, default=True, setter=set_outlines, getter=get_outlines)
 
 	def _box_rendered_cb(self, model, box):
 		try:
@@ -589,8 +582,8 @@ class BuildView(goocanvas.Canvas):
 		y = box.y * self.get_scale()
 		w = box.width * self.get_scale()
 		h = box.height * self.get_scale()
-		self._vadjustment.clamp_page(y, y + h)
-		self._hadjustment.clamp_page(x, x + w)
+		self.get_vadjustment().clamp_page(y, y + h)
+		self.get_hadjustment().clamp_page(x, x + w)
 
 	def _header_text_changed_cb(self, model):
 		self.queue_draw()
@@ -603,10 +596,10 @@ class BuildView(goocanvas.Canvas):
 		prev = model.get_lower_box(box)
 		if prev:
 			self._boxes[box].lower(self._boxes[prev])
-			self._boxes[box].raise_(self._boxes[prev])
+			self._boxes[box].__getattribute__('raise')(self._boxes[prev])
 		else:
 			self._boxes[box].lower(self._pages[box.dpage])
-			self._boxes[box].raise_(self._pages[box.dpage])
+			self._boxes[box].__getattribute__('raise')(self._pages[box.dpage])
 
 	def _box_added_cb(self, model, box):
 		self._update_pages(box.dpage + 1)
@@ -619,28 +612,28 @@ class BuildView(goocanvas.Canvas):
 		self._update_pages()
 
 	def do_scroll_event(self, event):
-		if not event.state & gtk.gdk.CONTROL_MASK:
+		if not event.state & Gdk.ModifierType.CONTROL_MASK:
 			return False
 
-		if event.direction == gtk.gdk.SCROLL_UP:
+		if event.direction == Gdk.ScrollDirection.UP:
 			zoom = 1.25
-		elif event.direction == gtk.gdk.SCROLL_DOWN:
+		elif event.direction == Gdk.ScrollDirection.DOWN:
 			zoom = 0.8
 		else:
 			return False
 
-		if self._hadjustment and self._vadjustment:
+		if self.get_hadjustment() and self.get_vadjustment():
 			# We cannot use x and y because those are wrong if a lot of
 			# events come in fast
 			mouse_x, mouse_y = event.x_root, event.y_root
-			origin_x, origin_y = self.window.get_origin()
+			origin_x, origin_y, dummy = self.get_window().get_origin()
 			mouse_x -= origin_x
 			mouse_y -= origin_y
 			mouse_x, mouse_y = self.convert_from_pixels(mouse_x, mouse_y)
 
 			top_x, top_y = \
-			    self.convert_from_pixels(self._hadjustment.get_value(),
-			                             self._vadjustment.get_value())
+			    self.convert_from_pixels(self.get_hadjustment().get_value(),
+			                             self.get_vadjustment().get_value())
 			x = top_x + mouse_x
 			y = top_y + mouse_y
 
@@ -654,7 +647,7 @@ class BuildView(goocanvas.Canvas):
 		scale *= zoom
 		self.set_scale(scale)
 
-		if self._hadjustment and self._vadjustment:
+		if self.get_hadjustment() and self.get_vadjustment():
 			mouse_x /= zoom
 			mouse_y /= zoom
 

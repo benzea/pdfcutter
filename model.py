@@ -18,11 +18,10 @@
 
 import cairo
 import sys
-import pango
-import pangocairo
-import gobject
-import gtk
-import poppler
+from gi.repository import Pango
+from gi.repository import PangoCairo
+from gi.repository import GObject
+from gi.repository import Poppler
 import thread
 import os
 import math
@@ -62,13 +61,13 @@ TOP_PADDING = 17*72/25.4
 
 HEADER_FONT = 'Bitstream Vera Serif 10'
 
-class Box(gobject.GObject):
+class Box(GObject.GObject):
 	__gtype_name__ = 'PDFCutterBox'
 	__gsignals__ = {
-		'changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([]))
+		'changed': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ([]))
 	}
 	def __init__(self):
-		gobject.GObject.__init__(self)
+		GObject.GObject.__init__(self)
 		self._spage = 0
 		self._sx = 0
 		self._sy = 0
@@ -149,31 +148,31 @@ class Box(gobject.GObject):
 		if self._model:
 			self._model.emit("box-changed", self)
 
-	sx = gobject.property(type=float, getter=get_sx, setter=set_sx)
-	sy = gobject.property(type=float, getter=get_sy, setter=set_sy)
-	spage = gobject.property(type=int, getter=get_spage, setter=set_spage)
-	width = gobject.property(type=float, getter=get_width, setter=set_width)
-	height = gobject.property(type=float, getter=get_height, setter=set_height)
+	sx = GObject.property(type=float, getter=get_sx, setter=set_sx)
+	sy = GObject.property(type=float, getter=get_sy, setter=set_sy)
+	spage = GObject.property(type=int, getter=get_spage, setter=set_spage)
+	width = GObject.property(type=float, getter=get_width, setter=set_width)
+	height = GObject.property(type=float, getter=get_height, setter=set_height)
 
-	dx = gobject.property(type=float, getter=get_dx, setter=set_dx)
-	dy = gobject.property(type=float, getter=get_dy, setter=set_dy)
-	dpage = gobject.property(type=int, getter=get_dpage, setter=set_dpage)
-	dscale = gobject.property(type=float, getter=get_dscale, setter=set_dscale)
+	dx = GObject.property(type=float, getter=get_dx, setter=set_dx)
+	dy = GObject.property(type=float, getter=get_dy, setter=set_dy)
+	dpage = GObject.property(type=int, getter=get_dpage, setter=set_dpage)
+	dscale = GObject.property(type=float, getter=get_dscale, setter=set_dscale)
 
-class Model(gobject.GObject):
+class Model(GObject.GObject):
 	__gtype_name__ = 'PDFCutterModel'
 	__gsignals__ = {
-		'box-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
-		'box-zpos-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
-		'box-added': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
-		'box-removed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
-		'page-rendered': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
-		'box-rendered': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ([object])),
-		'header-text-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ())
+		'box-changed': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ([object])),
+		'box-zpos-changed': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ([object])),
+		'box-added': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ([object])),
+		'box-removed': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ([object])),
+		'page-rendered': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ([object])),
+		'box-rendered': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ([object])),
+		'header-text-changed': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ())
 	}
 
 	def __init__(self, pdffile=None, loadfile=None):
-		gobject.GObject.__init__(self)
+		GObject.GObject.__init__(self)
 
 		self.pdffile = pdffile
 		self.loadfile = loadfile
@@ -192,7 +191,7 @@ class Model(gobject.GObject):
 			self._load_from_file()
 
 		self.document = \
-			poppler.document_new_from_file('file://' + self.pdffile, None)
+			Poppler.Document.new_from_file('file://' + self.pdffile, None)
 
 	def set_header_text(self, value):
 		self.header_text = value
@@ -263,21 +262,20 @@ class Model(gobject.GObject):
 		cr.set_source_rgb(1, 1, 1)
 		cr.paint()
 		cr.scale(300.0 / 72.0, 300 / 72.0)
-		cr = pangocairo.CairoContext(cr)
-		font = pango.FontDescription(HEADER_FONT)
-		font.set_weight(pango.WEIGHT_BOLD)
+		font = Pango.FontDescription(HEADER_FONT)
+		font.set_weight(Pango.Weight.BOLD)
 		page = 0
 
 		def show_text():
-			layout = cr.create_layout()
-			layout.set_text(self.header_text)
+			layout = PangoCairo.create_layout(cr)
+			layout.set_text(self.header_text, len(self.header_text))
 			layout.set_font_description(font)
 			cr.move_to(PADDING, PADDING)
 			cr.set_source_rgb(0, 0, 0)
-			cr.show_layout(layout)
+			PangoCairo.show_layout(cr, layout)
 
 		progress = 0
-		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *pbargs)
+		GObject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *pbargs)
 		for box in self.iter_boxes():
 			while box.dpage > page:
 				page += 1
@@ -298,7 +296,7 @@ class Model(gobject.GObject):
 			cr.restore()
 
 			progress += 1
-			gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes)+1, *pbargs)
+			GObject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes)+1, *pbargs)
 
 		page += 1
 		show_text()
@@ -316,7 +314,7 @@ class Model(gobject.GObject):
 		os.rmdir(tmpdir)
 
 		# done ...
-		gobject.idle_add(self._emit_progress_cb, progress_cb, len(self._boxes)+1, len(self._boxes)+1, *pbargs)
+		GObject.idle_add(self._emit_progress_cb, progress_cb, len(self._boxes)+1, len(self._boxes)+1, *pbargs)
 
 
 	def _real_emit_pdf(self, filename, progress_cb, *args):
@@ -326,21 +324,20 @@ class Model(gobject.GObject):
 		# Fallback resolution
 		surface.set_fallback_resolution(300, 300)
 		cr = cairo.Context(surface)
-		cr = pangocairo.CairoContext(cr)
-		font = pango.FontDescription(HEADER_FONT)
-		font.set_weight(pango.WEIGHT_BOLD)
+		font = Pango.FontDescription(HEADER_FONT)
+		font.set_weight(Pango.Weight.BOLD)
 		page = 0
 
 		def show_text():
-			layout = cr.create_layout()
-			layout.set_text(self.header_text)
+			layout = PangoCairo.create_layout(cr)
+			layout.set_text(self.header_text, len(self.header_text))
 			layout.set_font_description(font)
 			cr.move_to(PADDING, PADDING)
 			cr.set_source_rgb(0, 0, 0)
-			cr.show_layout(layout)
+			PangoCairo.show_layout(cr, layout)
 
 		progress = 0
-		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+		GObject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
 		for box in self.iter_boxes():
 			while box.dpage > page:
 				page += 1
@@ -360,11 +357,12 @@ class Model(gobject.GObject):
 			cr.restore()
 
 			progress += 1
-			gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+
+			GObject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
 
 		show_text()
 		# done ...
-		gobject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+		GObject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
 
 	def emit_pdf(self, filename, progress_cb, *args):
 		thread.start_new_thread(self._real_emit_pdf, (filename, progress_cb) + args)
@@ -594,7 +592,7 @@ class Model(gobject.GObject):
 		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height, x_offset, y_offset)
 		self._render_queue_lock.release()
 
-		gobject.idle_add(self._emit_box_rendered, box)
+		GObject.idle_add(self._emit_box_rendered, box)
 
 	def _emit_page_rendered(self, page):
 		self.emit("page-rendered", page)
@@ -637,5 +635,5 @@ class Model(gobject.GObject):
 		self._rendered_pages[page_number] = (surface, scale, x_offset, y_offset)
 		self._render_queue_lock.release()
 
-		gobject.idle_add(self._emit_page_rendered, page_number)
+		GObject.idle_add(self._emit_page_rendered, page_number)
 
