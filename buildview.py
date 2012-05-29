@@ -650,7 +650,7 @@ class BuildView(GooCanvas.Canvas):
 			# We cannot use x and y because those are wrong if a lot of
 			# events come in fast
 			mouse_x, mouse_y = event.x_root, event.y_root
-			origin_x, origin_y, dummy = self.get_window().get_origin()
+			dummy, origin_x, origin_y = self.get_window().get_origin()
 			mouse_x -= origin_x
 			mouse_y -= origin_y
 			mouse_x, mouse_y = self.convert_from_pixels(mouse_x, mouse_y)

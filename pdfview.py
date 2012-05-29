@@ -421,19 +421,20 @@ class PDFView(GooCanvas.Canvas):
 			return False
 
 		if self.get_hadjustment() and self.get_vadjustment():
-		    # We cannot use x and y because those are wrong if a lot of
-		    # events come in fast
-		    mouse_x, mouse_y = event.x_root, event.y_root
-		    origin_x, origin_y, dummy = self.get_window().get_origin()
-		    mouse_x -= origin_x
-		    mouse_y -= origin_y
-		    mouse_x, mouse_y = self.convert_from_pixels(mouse_x, mouse_y)
+			# We cannot use x and y because those are wrong if a lot of
+			# events come in fast
+			mouse_x, mouse_y = event.x_root, event.y_root
+			dummy, origin_x, origin_y = self.get_window().get_origin()
 
-		    top_x, top_y = \
-		        self.convert_from_pixels(self.get_hadjustment().get_value(),
-		                                 self.get_vadjustment().get_value())
-		    x = top_x + mouse_x
-		    y = top_y + mouse_y
+			mouse_x -= origin_x
+			mouse_y -= origin_y
+			mouse_x, mouse_y = self.convert_from_pixels(mouse_x, mouse_y)
+
+			top_x, top_y = \
+				self.convert_from_pixels(self.get_hadjustment().get_value(),
+				                         self.get_vadjustment().get_value())
+			x = top_x + mouse_x
+			y = top_y + mouse_y
 
 		scale = self.get_scale()
 		
