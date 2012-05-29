@@ -336,6 +336,9 @@ class PDFView(GooCanvas.Canvas):
 		self._boxes = {}
 		self.props.redraw_when_scrolled = True
 
+		self.add_events(Gdk.EventMask.SMOOTH_SCROLL_MASK)
+		self._smooth_zoom = 0
+
 	def set_model(self, model):
 		if self._model:
 			self._model.disconnect(self._page_rendered_id)
@@ -403,6 +406,17 @@ class PDFView(GooCanvas.Canvas):
 			zoom = 1.25
 		elif event.direction == Gdk.ScrollDirection.DOWN:
 			zoom = 0.8
+		elif event.direction == Gdk.ScrollDirection.SMOOTH:
+			self._smooth_zoom += event.delta_y
+
+			if self._smooth_zoom < -1:
+				zoom = 1.25
+				self._smooth_zoom += 1
+			elif self._smooth_zoom > 1:
+				zoom = 0.8
+				self._smooth_zoom -= 1
+			else:
+				return True
 		else:
 			return False
 
