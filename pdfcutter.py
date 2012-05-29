@@ -55,7 +55,10 @@ class MainWindow(object):
 		scrolled_window = self._builder.get_object("build_view_scroll")
 		self.build_view = BuildView()
 		scrolled_window.add(self.build_view)
-		
+
+		grid_icon = Gtk.Image.new_from_file(os.path.join(dir, 'grid.png'))
+		self._builder.get_object("grid_toggle").set_icon_widget(grid_icon)
+
 		# So the buttons are insensitive
 		self.update_ui()
 		self._window.show_all()
