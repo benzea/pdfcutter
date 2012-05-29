@@ -596,10 +596,20 @@ class BuildView(GooCanvas.Canvas):
 		prev = model.get_lower_box(box)
 		if prev:
 			self._boxes[box].lower(self._boxes[prev])
-			self._boxes[box].__getattribute__('raise')(self._boxes[prev])
+
+			# Work around bug #676746
+			if hasattr(self._boxes[box], 'raise_'):
+                        	self._boxes[box].raise_(self._boxes[prev])
+                        else:
+				getattr(self._boxes[box], 'raise')(self._boxes[prev])
 		else:
 			self._boxes[box].lower(self._pages[box.dpage])
-			self._boxes[box].__getattribute__('raise')(self._pages[box.dpage])
+
+			# Work around bug #676746
+			if hasattr(self._boxes[box], 'raise_'):
+                        	self._boxes[box].raise_(self._pages[box.dpage])
+                        else:
+				getattr(self._boxes[box], 'raise')(self._pages[box.dpage])
 
 	def _box_added_cb(self, model, box):
 		self._update_pages(box.dpage + 1)
