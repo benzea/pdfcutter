@@ -67,7 +67,7 @@ class MainWindow(object):
 
 	def remove_status(self, context_id, message_id):
 		statusbar = self._builder.get_object("statusbar")
-		statusbar.remove_message(context_id, message_id)		
+		statusbar.remove(context_id, message_id)		
 
 	def autosave(self):
 		if self._model is None:
