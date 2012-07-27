@@ -432,7 +432,6 @@ class Page(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 		cr.translate(self.x, self.y)
 		cr.move_to(model.PADDING, model.PADDING - 2)
 		PangoCairo.show_layout(cr, layout)
-		cr.show_page()
 		cr.restore()
 
 
