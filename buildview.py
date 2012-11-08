@@ -535,12 +535,28 @@ class BuildView(GooCanvas.Canvas):
 
 		self.set_bounds(0, 0, pwidth + 2*_PADDING, math.ceil(pheight + _PADDING) * len(self._pages) + _PADDING * 3)
 
+		# BUG in goocanvas?
+		self._update_scroll_workaround()
+
+	def _update_scroll_workaround(self):
+		# Workaround a bug in goocanvas, when set_bounds is called.
+		# Without this one needs to scroll once after a page disappears to
+		# get correct rendering back.
+		hadj = self.get_hadjustment()
+		hadj.emit("value-changed")
+
+		vadj = self.get_hadjustment()
+		vadj.emit("value-changed")
+
 	def _remove_page(self):
 		self._pages.pop(len(self._pages) - 1).remove()
 
 		pwidth, pheight = self._model.document.get_page(0).get_size()
 
 		self.set_bounds(0, 0, pwidth + 2*_PADDING, math.ceil(pheight + _PADDING) * len(self._pages) + _PADDING * 3)
+
+		# BUG in goocanvas?
+		self._update_scroll_workaround()
 
 	def _update_pages(self, min_pages=1):
 		pages = min_pages
@@ -591,6 +607,7 @@ class BuildView(GooCanvas.Canvas):
 		self.queue_draw()
 
 	def _box_changed_cb(self, model, box):
+		# Needs to run first, so that enough pages exist.
 		self._update_pages()
 		self._boxes[box].update_pos()
 
