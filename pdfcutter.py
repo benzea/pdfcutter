@@ -79,8 +79,11 @@ class MainWindow(object):
 		if self._model.loadfile is None:
 			message_id = statusbar.push(context_id, "Could not autosave, please save the project!")
 		else:
-			self._model.save_to_file(self._model.loadfile)
-			message_id = statusbar.push(context_id, "Autosaved the project.")
+			try:
+				self._model.save_to_file(self._model.loadfile)
+				message_id = statusbar.push(context_id, "Autosaved the project.")
+			except:
+				message_id = statusbar.push(context_id, "Error saving the project! Maybe try to save somewhere else.")
 
 		GObject.timeout_add(30000, self.remove_status, context_id, message_id)
 
@@ -183,6 +186,17 @@ class MainWindow(object):
 
 		fc.destroy()
 
+	def save_to_file_with_error_dialog(self, filename):
+		try:
+			self._model.save_to_file(filename)
+		except:
+			msg = Gtk.MessageDialog(parent=self._window, type=Gtk.MessageType.WARNING)
+			msg.add_buttons(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
+			msg.set_markup("Error saving data to file!")
+			msg.format_secondary_markup("Maybe try to store the file somewhere else?")
+			msg.run()
+			msg.destroy()
+
 	def save_file_as(self, *args):
 		if self._model is None:
 			return
@@ -201,7 +215,7 @@ class MainWindow(object):
 			if not filename.endswith('.bcut'):
 				filename += '.bcut'
 
-			self._model.save_to_file(filename)
+			self.save_to_file_with_error_dialog(filename)
 		fc.destroy()
 
 	def save_file(self, *args):
@@ -210,7 +224,7 @@ class MainWindow(object):
 		filename = self._model.loadfile
 		if filename is None:
 			return self.save_file_as()
-		self._model.save_to_file(filename)
+		self.save_to_file_with_error_dialog(filename)
 
 	def new_file(self, *args):
 		fc = Gtk.FileChooserDialog(parent=self._window)
