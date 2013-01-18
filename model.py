@@ -290,8 +290,7 @@ class Model(GObject.GObject):
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
 			self._document_lock.acquire()
-			# Use render instead of render_for_printing because of bug #44002
-			self.document.get_page(box.spage).render(cr)
+			self.document.get_page(box.spage).render_for_printing(cr)
 			self._document_lock.release()
 			cr.restore()
 
@@ -351,8 +350,7 @@ class Model(GObject.GObject):
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
 			self._document_lock.acquire()
-			# Use render instead of render_for_printing because of bug #44002
-			self.document.get_page(box.spage).render(cr)
+			self.document.get_page(box.spage).render_for_printing(cr)
 			self._document_lock.release()
 			cr.restore()
 
@@ -585,7 +583,7 @@ class Model(GObject.GObject):
 		cr.scale(scale, scale)
 		cr.translate(-x - x_offset, -y - y_offset)
 		self._document_lock.acquire()
-		page.render(cr)
+		page.render_for_printing(cr)
 		self._document_lock.release()
 
 		self._render_queue_lock.acquire()
@@ -628,7 +626,7 @@ class Model(GObject.GObject):
 		cr.scale(scale, scale)
 		cr.translate(-x_offset, -y_offset)
 		self._document_lock.acquire()
-		page.render(cr)
+		page.render_for-printing(cr)
 		self._document_lock.release()
 
 		self._render_queue_lock.acquire()
