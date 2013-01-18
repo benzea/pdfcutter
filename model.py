@@ -626,7 +626,7 @@ class Model(GObject.GObject):
 		cr.scale(scale, scale)
 		cr.translate(-x_offset, -y_offset)
 		self._document_lock.acquire()
-		page.render_for-printing(cr)
+		page.render_for_printing(cr)
 		self._document_lock.release()
 
 		self._render_queue_lock.acquire()
