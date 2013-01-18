@@ -45,3 +45,5 @@ model.emit_pdf(args['outfile'], wait)
 
 loop.run()
 
+import time
+time.sleep(0.5)
