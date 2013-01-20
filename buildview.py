@@ -319,7 +319,8 @@ class Box(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 		y_offset = -y_offset / scale
 
 		rscale = scale * self._box.dscale
-		result = self._canvas._model.get_rendered_box_or_queue(self._box, rscale, x_offset, y_offset)
+		result = self._canvas._model.get_rendered_box_or_queue(self._box, rscale, x_offset, y_offset, cr.get_target())
+		print result
 		if result is None:
 			cr.translate(self.x + self.width / 2.0, self.y + self.height / 2.0)
 			cr.set_source_rgb(0.4, 0.4, 0.4)

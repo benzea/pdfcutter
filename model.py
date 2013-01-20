@@ -197,11 +197,24 @@ class Model(GObject.GObject):
 		self.header_text = value
 		self.emit('header-text-changed')
 
-	def get_rendered_box_or_queue (self, box, scale, x_offset, y_offset):
+	def get_rendered_box_or_queue (self, box, scale, x_offset, y_offset, similar_surface):
 		try:
 			# Try to retrieve a preprendered box
 			self._render_queue_lock.acquire()
-			result, _scale, page, x, y, width, height, _x_offset, _y_offset = self._rendered_boxes[box]
+			result, _scale, page, x, y, width, height, _x_offset, _y_offset, uploaded = self._rendered_boxes[box]
+
+			# Check whether surface can and is not uploaded to the X server
+			if similar_surface and not uploaded:
+				iwidth, iheight = result.get_width(), result.get_height()
+				surf = similar_surface.create_similar(cairo.CONTENT_COLOR_ALPHA, iwidth, iheight)
+				cr = cairo.Context(surf)
+				cr.set_operator(cairo.OPERATOR_SOURCE)
+				cr.set_source_surface(result, 0, 0)
+				cr.paint()
+
+				result = surf
+				self._rendered_boxes[box] = (result, _scale, page, x, y, width, height, _x_offset, _y_offset, True)
+
 			self._render_queue_lock.release()
 
 			if scale != _scale or page != box.spage or x != box.sx or \
@@ -220,11 +233,24 @@ class Model(GObject.GObject):
 			self._render_queue_lock.release()
 			self._queue_box_render_at_scale(box, scale, x_offset, y_offset)
 
-	def get_rendered_page_or_queue (self, page, scale, x_offset, y_offset):
+	def get_rendered_page_or_queue (self, page, scale, x_offset, y_offset, similar_surface):
 		try:
 			# Try to retrieve a preprendered box
 			self._render_queue_lock.acquire()
-			result, _scale, _x_offset, _y_offset = self._rendered_pages[page]
+			result, _scale, _x_offset, _y_offset, uploaded = self._rendered_pages[page]
+
+			# Check whether surface can and is not uploaded to the X server
+			if similar_surface and not uploaded:
+				iwidth, iheight = result.get_width(), result.get_height()
+				surf = similar_surface.create_similar(cairo.CONTENT_COLOR, iwidth, iheight)
+				cr = cairo.Context(surf)
+				cr.set_operator(cairo.OPERATOR_SOURCE)
+				cr.set_source_surface(result, 0, 0)
+				cr.paint()
+
+				result = surf
+				self._rendered_pages[page] = (result, _scale, _x_offset, _y_offset, True)
+
 			self._render_queue_lock.release()
 
 			if scale != _scale or x_offset != _x_offset or y_offset != _y_offset:
@@ -587,7 +613,7 @@ class Model(GObject.GObject):
 		self._document_lock.release()
 
 		self._render_queue_lock.acquire()
-		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height, x_offset, y_offset)
+		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height, x_offset, y_offset, False)
 		self._render_queue_lock.release()
 
 		GObject.idle_add(self._emit_box_rendered, box)
@@ -630,7 +656,7 @@ class Model(GObject.GObject):
 		self._document_lock.release()
 
 		self._render_queue_lock.acquire()
-		self._rendered_pages[page_number] = (surface, scale, x_offset, y_offset)
+		self._rendered_pages[page_number] = (surface, scale, x_offset, y_offset, False)
 		self._render_queue_lock.release()
 
 		GObject.idle_add(self._emit_page_rendered, page_number)

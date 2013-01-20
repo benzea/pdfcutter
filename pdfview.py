@@ -241,7 +241,7 @@ class Page(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 		y_offset = y_offset - math.floor(y_offset)
 		x_offset = -x_offset / scale
 		y_offset = -y_offset / scale
-		result = self._model.get_rendered_page_or_queue(self._page, scale, x_offset, y_offset)
+		result = self._model.get_rendered_page_or_queue(self._page, scale, x_offset, y_offset, cr.get_target())
 		if result is None:
 			cr.translate(self.x + self.width / 2.0, self.y + self.height / 2.0)
 			cr.set_source_rgb(0.4, 0.4, 0.4)
