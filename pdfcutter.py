@@ -49,11 +49,13 @@ class MainWindow(object):
 		self._window.maximize()
 
 		scrolled_window = self._builder.get_object("pdf_view_scroll")
-		self.pdf_view = PDFView()
+		page_label = self._builder.get_object("pdfview_page")
+		self.pdf_view = PDFView(page_label)
 		scrolled_window.add(self.pdf_view)
 
 		scrolled_window = self._builder.get_object("build_view_scroll")
-		self.build_view = BuildView()
+		page_label = self._builder.get_object("buildview_page")
+		self.build_view = BuildView(page_label)
 		scrolled_window.add(self.build_view)
 
 		grid_icon = Gtk.Image.new_from_file(os.path.join(dir, 'grid.png'))

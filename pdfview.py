@@ -328,16 +328,19 @@ class Page(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 class PDFView(GooCanvas.Canvas):
 	__gtype_name__ = 'PDFView'
 
-	def __init__(self):
+	def __init__(self, page_label):
 		GooCanvas.Canvas.__init__(self)
 		self._model = None
 		self._root = self.get_root_item()
 		self._pages = []
 		self._boxes = {}
+		self._page_label = page_label
 		self.props.redraw_when_scrolled = True
 
 		self.add_events(Gdk.EventMask.SMOOTH_SCROLL_MASK)
 		self._smooth_zoom = 0
+
+		self.connect('draw', self.update_page_label)
 
 	def set_model(self, model):
 		if self._model:
@@ -379,7 +382,7 @@ class PDFView(GooCanvas.Canvas):
 
 		for box in self._model.iter_boxes():
 			self._boxes[box] = Box(self, box, parent=self._root)
-	
+
 	def get_model(self):
 		return self._model
 
@@ -397,6 +400,24 @@ class PDFView(GooCanvas.Canvas):
 	def _box_removed_cb(self, model, box):
 		dbox = self._boxes.pop(box)
 		dbox.remove()
+
+	def update_page_label(self, *args):
+		pages = len(self._pages)
+		ypos = self.get_vadjustment().get_value()
+		scale = self.get_scale()
+		ypos = ypos / scale
+		cur_page = -1
+		good = False
+		for i, page in enumerate(self._pages):
+			if page.y <= ypos + 50:
+				good = True
+			if good and page.y + page.height >= ypos + 50:
+				cur_page = i + 1
+				break
+		if cur_page == -1:
+			cur_page = pages
+
+		self._page_label.set_text("Seite %i von %i" % (cur_page, pages))
 
 	def do_scroll_event(self, event):
 		if not event.state & Gdk.ModifierType.CONTROL_MASK:

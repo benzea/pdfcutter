@@ -442,7 +442,7 @@ class Page(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 class BuildView(GooCanvas.Canvas):
 	__gtype_name__ = 'BuildView'
 
-	def __init__(self):
+	def __init__(self, page_label):
 		GooCanvas.Canvas.__init__(self)
 		self._model = None
 		self._root = self.get_root_item()
@@ -450,6 +450,7 @@ class BuildView(GooCanvas.Canvas):
 		self._boxes = {}
 		self._grid = True
 		self._outlines = True
+		self._page_label = page_label
 		self.props.redraw_when_scrolled = True
 
 		self.add_events(Gdk.EventMask.SMOOTH_SCROLL_MASK)
@@ -457,6 +458,8 @@ class BuildView(GooCanvas.Canvas):
 
 		self._focused_item = None
 		self._focus_list = []
+
+		self.connect('draw', self.update_page_label)
 
 	def _add_item_to_focus_group(self, item):
 		if item is not self._focused_item and item not in self._focus_list:
@@ -643,6 +646,24 @@ class BuildView(GooCanvas.Canvas):
 		dbox = self._boxes.pop(box)
 		dbox.remove()
 		self._update_pages()
+
+	def update_page_label(self, *args):
+		pages = len(self._pages)
+		ypos = self.get_vadjustment().get_value()
+		scale = self.get_scale()
+		ypos = ypos / scale
+		cur_page = -1
+		good = False
+		for i, page in enumerate(self._pages):
+			if page.y <= ypos + 50:
+				good = True
+			if good and page.y + page.height >= ypos + 50:
+				cur_page = i + 1
+				break
+		if cur_page == -1:
+			cur_page = pages
+
+		self._page_label.set_text("Seite %i von %i" % (cur_page, pages))
 
 	def do_scroll_event(self, event):
 		if not event.state & Gdk.ModifierType.CONTROL_MASK:
