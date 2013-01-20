@@ -138,20 +138,24 @@ class Box(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 			max_x -= item.width
 			max_y -= item.height
 
+			step = 1 # mm
+			if event.state & Gdk.ModifierType.SHIFT_MASK:
+				step = 0.1 # mm
+
 			if keyname == 'Delete':
 				item._canvas._model.remove_box(item._box)
 				handled = True
 			elif keyname == 'Left':
-				item._box.dx = max(0, item._box.dx - 72.0 / 25.4)
+				item._box.dx = max(0, item._box.dx - step * 72.0 / 25.4)
 				handled = True
 			elif keyname == 'Right':
-				item._box.dx = min(max_x, item._box.dx + 72.0 / 25.4)
+				item._box.dx = min(max_x, item._box.dx + step * 72.0 / 25.4)
 				handled = True
 			elif keyname == 'Up':
-				item._box.dy = max(0, item._box.dy - 72.0 / 25.4)
+				item._box.dy = max(0, item._box.dy - step * 72.0 / 25.4)
 				handled = True
 			elif keyname == 'Down':
-				item._box.dy = min(max_y, item._box.dy + 72.0 / 25.4)
+				item._box.dy = min(max_y, item._box.dy + step * 72.0 / 25.4)
 				handled = True
 			elif keyname == 'equal':
 				item._box.dscale = 1.0
