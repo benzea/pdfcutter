@@ -294,7 +294,15 @@ class MainWindow(object):
 
 win = MainWindow()
 
-if len(sys.argv) == 2:
+args = sys.argv[1:]
+if args:
+    if args[0] == '--nothreads':
+        args.pop(0)
+
+        import model
+        model.no_threads = True
+
+if len(args) == 1:
 	win.load_file(sys.argv[1])
 
 def url_hook(dialog, link):

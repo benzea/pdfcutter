@@ -28,6 +28,8 @@ import math
 import tempfile
 from lru import LRU
 
+no_threads = False
+
 def relpath(path, start=os.path.curdir):
 	"""Return a relative version of a path"""
 
@@ -389,10 +391,16 @@ class Model(GObject.GObject):
 		GObject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
 
 	def emit_pdf(self, filename, progress_cb, *args):
-		thread.start_new_thread(self._real_emit_pdf, (filename, progress_cb) + args)
+		if no_threads == False:
+			thread.start_new_thread(self._real_emit_pdf, (filename, progress_cb) + args)
+		else:
+			self._real_emit_pdf(filename, progress_cb, *args)
 
 	def emit_tif(self, filename, progress_cb, *args):
-		thread.start_new_thread(self._real_emit_tif, (filename, progress_cb) + args)
+		if no_threads == False:
+			thread.start_new_thread(self._real_emit_tif, (filename, progress_cb) + args)
+		else:
+			self._real_emit_tif(filename, progress_cb, *args)
 
 	def iter_boxes(self):
 		for box in self._boxes:
@@ -533,9 +541,14 @@ class Model(GObject.GObject):
 					
 		self._box_render_queue.append((box, scale, x_offset, y_offset))
 		# Recreate thread if neccessary
-		if not self._render_thread_running:
+		if no_threads == False and not self._render_thread_running:
 			thread.start_new_thread(self._render_thread, ())
 			self._render_thread_running = True
+		else:
+			self._render_queue_lock.release()
+			self._render_thread()
+			self._render_queue_lock.acquire()
+
 		self._render_queue_lock.release()
 
 	def _queue_page_render_at_scale(self, page, scale, x_offset, y_offset):
