@@ -541,9 +541,10 @@ class Model(GObject.GObject):
 					
 		self._box_render_queue.append((box, scale, x_offset, y_offset))
 		# Recreate thread if neccessary
-		if no_threads == False and not self._render_thread_running:
-			thread.start_new_thread(self._render_thread, ())
-			self._render_thread_running = True
+		if no_threads == False:
+			if not self._render_thread_running:
+				thread.start_new_thread(self._render_thread, ())
+				self._render_thread_running = True
 		else:
 			self._render_queue_lock.release()
 			self._render_thread()
