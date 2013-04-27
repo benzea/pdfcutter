@@ -18,12 +18,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from gi.repository import GLib
-GLib.threads_init()
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Gdk
-#Gdk.threads_init()
-Gdk.threads_enter()
 
 import os
 import time
@@ -299,12 +296,6 @@ class MainWindow(object):
 win = MainWindow()
 
 args = sys.argv[1:]
-if args:
-    if args[0] == '--nothreads':
-        args.pop(0)
-
-        import model
-        model.no_threads = True
 
 if len(args) == 1:
 	win.load_file(sys.argv[1])
