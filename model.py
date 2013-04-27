@@ -18,17 +18,17 @@
 
 import cairo
 import sys
+from gi.repository import GLib
 from gi.repository import Pango
 from gi.repository import PangoCairo
 from gi.repository import GObject
 from gi.repository import Poppler
-import thread
+import multiprocessing
+from gprocess import GProcess
 import os
 import math
 import tempfile
 from lru import LRU
-
-no_threads = False
 
 def relpath(path, start=os.path.curdir):
 	"""Return a relative version of a path"""
@@ -52,7 +52,7 @@ def relpath(path, start=os.path.curdir):
 			break
 		else:
 			i += 1
-        
+
 	rel_list = [os.path.pardir] * (len(start_list)-i) + path_list[i:]
 	if not rel_list:
 		return os.path.curdir
@@ -182,18 +182,26 @@ class Model(GObject.GObject):
 		self._boxes = []
 		self._rendered_boxes = LRU(200)
 		self._rendered_pages = LRU(5)
+
+		self._box_render_process = GProcess(target=self._box_render_proc, childcb=self._box_rendered_wakeup)
+		self._page_render_process = GProcess(target=self._page_render_proc, childcb=self._page_rendered_wakeup)
+
+		# These are only for the main process, to prevent an item from being
+		# queued twice.
 		self._box_render_queue = []
 		self._page_render_queue = []
-		self._render_queue_lock = thread.allocate_lock()
-		# poppler does not seem to be entirely thread safe wrt. to rendering at least
-		self._document_lock = thread.allocate_lock()
-		self._render_thread_running = False
+
+		self._box_render_pipe_p, self._box_render_pipe_c = multiprocessing.Pipe()
+		self._page_render_pipe_p, self._page_render_pipe_c = multiprocessing.Pipe()
 
 		if loadfile:
 			self._load_from_file()
 
 		self.document = \
 			Poppler.Document.new_from_file('file://' + self.pdffile, None)
+
+		self._box_render_process.start()
+		self._page_render_process.start()
 
 	def set_header_text(self, value):
 		self.header_text = value
@@ -202,8 +210,7 @@ class Model(GObject.GObject):
 	def get_rendered_box_or_queue (self, box, scale, x_offset, y_offset, similar_surface):
 		try:
 			# Try to retrieve a preprendered box
-			self._render_queue_lock.acquire()
-			result, _scale, page, x, y, width, height, _x_offset, _y_offset, uploaded = self._rendered_boxes[box]
+			result, _scale, page, x, y, width, height, dscale, _x_offset, _y_offset, uploaded = self._rendered_boxes[box]
 
 			# Check whether surface can and is not uploaded to the X server
 			if similar_surface and not uploaded:
@@ -215,9 +222,7 @@ class Model(GObject.GObject):
 				cr.paint()
 
 				result = surf
-				self._rendered_boxes[box] = (result, _scale, page, x, y, width, height, _x_offset, _y_offset, True)
-
-			self._render_queue_lock.release()
+				self._rendered_boxes[box] = (result, _scale, page, x, y, width, height, dscale, _x_offset, _y_offset, True)
 
 			if scale != _scale or page != box.spage or x != box.sx or \
 			   y != box.sy or width != box.width or height != box.height or\
@@ -228,18 +233,15 @@ class Model(GObject.GObject):
 			if page != box.spage or x != box.sx or \
 			   y != box.sy or width != box.width or height != box.height:
 				result = None
+
 			if result is not None:
 				return result, _scale, _x_offset, _y_offset
 		except KeyError:
-			# Nothing, there, queue the rendering
-			self._render_queue_lock.release()
 			self._queue_box_render_at_scale(box, scale, x_offset, y_offset)
 
 	def get_rendered_page_or_queue (self, page, scale, x_offset, y_offset, similar_surface):
 		try:
-			# Try to retrieve a preprendered box
-			self._render_queue_lock.acquire()
-			result, _scale, _x_offset, _y_offset, uploaded = self._rendered_pages[page]
+			result, _page, _scale, _x_offset, _y_offset, uploaded = self._rendered_pages[page]
 
 			# Check whether surface can and is not uploaded to the X server
 			if similar_surface and not uploaded:
@@ -251,17 +253,14 @@ class Model(GObject.GObject):
 				cr.paint()
 
 				result = surf
-				self._rendered_pages[page] = (result, _scale, _x_offset, _y_offset, True)
-
-			self._render_queue_lock.release()
+				self._rendered_pages[page] = (result, _page, _scale, _x_offset, _y_offset, True)
 
 			if scale != _scale or x_offset != _x_offset or y_offset != _y_offset:
 				# Queue a render at the correct scale
 				self._queue_page_render_at_scale(page, scale, x_offset, y_offset)
+
 			return result, _scale, _x_offset, _y_offset
 		except KeyError:
-			# Nothing, there, queue the rendering
-			self._render_queue_lock.release()
 			self._queue_page_render_at_scale(page, scale, x_offset, y_offset)
 			return None
 
@@ -311,19 +310,20 @@ class Model(GObject.GObject):
 				write_tif(surface, tmpdir, page)
 				cr.set_source_rgb(1, 1, 1)
 				cr.paint()
+				yield
 			cr.save()
 			cr.translate(+box.dx, +box.dy)
 			cr.scale(box.dscale, box.dscale)
 			cr.rectangle(0, 0, box.width, box.height)
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
-			self._document_lock.acquire()
 			self.document.get_page(box.spage).render_for_printing(cr)
-			self._document_lock.release()
 			cr.restore()
 
 			progress += 1
 			GObject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes)+1, *pbargs)
+			# XXX: Hack to split up the task into chunks using the mainloop
+			yield
 
 		page += 1
 		show_text()
@@ -377,30 +377,52 @@ class Model(GObject.GObject):
 			cr.rectangle(0, 0, box.width, box.height)
 			cr.clip()
 			cr.translate(-box.sx, -box.sy)
-			self._document_lock.acquire()
 			self.document.get_page(box.spage).render_for_printing(cr)
-			self._document_lock.release()
 			cr.restore()
 
 			progress += 1
 
 			GObject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
+			# XXX: Hack to split up the task into chunks using the mainloop
+			yield
 
 		show_text()
 		# done ...
 		GObject.idle_add(self._emit_progress_cb, progress_cb, progress, len(self._boxes), *args)
 
 	def emit_pdf(self, filename, progress_cb, *args):
-		if no_threads == False:
-			thread.start_new_thread(self._real_emit_pdf, (filename, progress_cb) + args)
-		else:
-			self._real_emit_pdf(filename, progress_cb, *args)
+		# XXX: Blocks for now!
+		list(self._real_emit_pdf(filename, progress_cb, *args))
+
+	def main_iter_emit_pdf(self, filename, progress_cb, *args):
+		iterator = self._real_emit_pdf(filename, progress_cb, *args)
+
+		def do_next():
+			try:
+				iterator.next()
+			except StopIteration:
+				return False
+
+			return True
+
+		GLib.idle_add(do_next)
 
 	def emit_tif(self, filename, progress_cb, *args):
-		if no_threads == False:
-			thread.start_new_thread(self._real_emit_tif, (filename, progress_cb) + args)
-		else:
-			self._real_emit_tif(filename, progress_cb, *args)
+		# XXX: Blocks for now!
+		list(self._real_emit_tif(filename, progress_cb, *args))
+
+	def main_iter_emit_tif(self, filename, progress_cb, *args):
+		iterator = self._real_emit_tif(filename, progress_cb, *args)
+
+		def do_next():
+			try:
+				iterator.next()
+			except StopIteration:
+				return False
+
+			return True
+
+		GLib.idle_add(do_next)
 
 	def iter_boxes(self):
 		for box in self._boxes:
@@ -528,79 +550,107 @@ class Model(GObject.GObject):
 			self._boxes.append(b)
 
 	def _queue_box_render_at_scale(self, box, scale, x_offset, y_offset):
-		self._render_queue_lock.acquire()
-		for queue in self._box_render_queue:
-			if queue[0] != box:
-				continue
+		render_info = (scale, box.spage, box.sx, box.sy, box.width, box.height, box.dscale, x_offset, y_offset)
 
-			if queue[1] != scale or queue[2] != x_offset or queue[3] != y_offset:
-				self._box_render_queue.remove(queue)
-			else:
-				self._render_queue_lock.release()
+		for b, info in self._box_render_queue:
+			if b == box and info == render_info:
 				return
-					
-		self._box_render_queue.append((box, scale, x_offset, y_offset))
-		# Recreate thread if neccessary
-		if no_threads == False and not self._render_thread_running:
-			thread.start_new_thread(self._render_thread, ())
-			self._render_thread_running = True
-		else:
-			self._render_queue_lock.release()
-			self._render_thread()
-			self._render_queue_lock.acquire()
 
-		self._render_queue_lock.release()
+		# Save in internal list
+		self._box_render_queue.append((box, render_info))
+		# And send item over the wire
+		self._box_render_pipe_p.send(render_info)
 
 	def _queue_page_render_at_scale(self, page, scale, x_offset, y_offset):
-		self._render_queue_lock.acquire()
+		render_info = (page, scale, x_offset, y_offset)
 
-		for queue in self._page_render_queue:
-			if queue[0] == page:
-				if queue[1] != scale or queue[2] != x_offset or queue[3] != y_offset:
-					self._page_render_queue.remove(queue)
-				else:
-					self._render_queue_lock.release()
-					return
+		if render_info in self._page_render_queue:
+			return
 
-		self._page_render_queue.append((page, scale, x_offset, y_offset))
-		# Recreate thread if neccessary
-		if not self._render_thread_running:
-			thread.start_new_thread(self._render_thread, ())
-			self._render_thread_running = True
-		self._render_queue_lock.release()
+		self._page_render_queue.append(render_info)
+		self._page_render_pipe_p.send(render_info)
 
-	def _render_thread(self):
-		# Just do a render run on pages/boxes
+	def _box_render_proc(self):
+		# This function runs in a separate process!
+
 		while True:
-			self._render_page()
-			self._render_box()
-
-			self._render_queue_lock.acquire()
-			if len(self._box_render_queue) == 0 and \
-			   len(self._page_render_queue) == 0:
-				self._render_thread_running = False
-				self._render_queue_lock.release()
+			obj = self._box_render_pipe_c.recv()
+			if obj == 'quit':
 				return
 
-			self._render_queue_lock.release()
+			# Wake parent first (in case data does not fit into buffer)
+			self._box_render_process.wake_parent()
+			self._box_render_pipe_c.send(self._pack_surface(self._render_box(obj)))
+
+	def _page_render_proc(self):
+		# This function runs in a separate process!
+
+		while True:
+			obj = self._page_render_pipe_c.recv()
+			if obj == 'quit':
+				return
+
+			# Wake parent first (in case data does not fit into buffer)
+			self._page_render_process.wake_parent()
+			self._page_render_pipe_c.send(self._pack_surface(self._render_page(obj)))
+
+	def _recreate_surface(self, surface):
+		f, width, height, stride, data = surface
+		surface = cairo.ImageSurface(f, width, height)
+
+		# Has to be the same ... same forked() process ...
+		assert stride == surface.get_stride()
+		d = surface.get_data()
+		d[:] = data
+
+		surface.mark_dirty()
+
+		return surface
+
+	b = False
+
+	def _pack_surface(self, surface):
+		surface.flush()
+
+		f = surface.get_format()
+		width = surface.get_width()
+		height = surface.get_height()
+		stride = surface.get_stride()
+		data = surface.get_data()
+		data = str(data)
+
+		return f, width, height, stride, data
+
+	def _box_rendered_wakeup(self, proc):
+		# XXX: Assumes that nothing ever goes wrong ...
+		box, data = self._box_render_queue.pop(0)
+
+		surface_data = self._box_render_pipe_p.recv()
+		surface = self._recreate_surface(surface_data)
+
+		self._rendered_boxes[box] = (surface,) + data + (False,)
+		GLib.idle_add(self._emit_box_rendered, box)
+
+	def _page_rendered_wakeup(self, proc):
+		# XXX: Assumes that nothing ever goes wrong ...
+		data = self._page_render_queue.pop(0)
+
+		surface_data = self._page_render_pipe_p.recv()
+		surface = self._recreate_surface(surface_data)
+
+		self._rendered_pages[data[0]] = (surface,) + data + (False,)
+		GLib.idle_add(self._emit_page_rendered, data[0])
 
 	def _emit_box_rendered(self, box):
 		self.emit("box-rendered", box)
 		return False
 
-	def _render_box(self):
-		self._render_queue_lock.acquire()
-		if len(self._box_render_queue) == 0:
-			self._render_queue_lock.release()
-			return
-		data = self._box_render_queue.pop()
-		self._render_queue_lock.release()
+	def _emit_page_rendered(self, page):
+		self.emit("page-rendered", page)
+		return False
 
-		box = data[0]
-		page_number, x, y, width, height = box.spage, box.sx, box.sy, box.width, box.height
-		scale = data[1]
-		x_offset = data[2]
-		y_offset = data[3]
+	def _render_box(self, data):
+		scale, page_number, x, y, width, height, scale, x_offset, y_offset = data
 
 		page = self.document.get_page(page_number)
 		scaled_width = width + 1
@@ -611,8 +661,8 @@ class Model(GObject.GObject):
 			surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(math.ceil(scaled_width)), int(math.ceil(scaled_height)))
 		except MemoryError:
 			sys.stderr.write("Cannot render box at this zoom, not enough memory!\n")
-			return
-			pass
+			return None
+
 		cr = cairo.Context(surface)
 		cr.set_source_rgba(0, 0, 0, 0)
 		cr.set_operator(cairo.OPERATOR_SOURCE)
@@ -621,32 +671,12 @@ class Model(GObject.GObject):
 		cr.set_operator(cairo.OPERATOR_OVER)
 		cr.scale(scale, scale)
 		cr.translate(-x - x_offset, -y - y_offset)
-		self._document_lock.acquire()
 		page.render_for_printing(cr)
-		self._document_lock.release()
 
-		self._render_queue_lock.acquire()
-		self._rendered_boxes[box] = (surface, scale, page_number, x, y, width, height, x_offset, y_offset, False)
-		self._render_queue_lock.release()
+		return surface
 
-		GObject.idle_add(self._emit_box_rendered, box)
-
-	def _emit_page_rendered(self, page):
-		self.emit("page-rendered", page)
-		return False
-
-	def _render_page(self):
-		self._render_queue_lock.acquire()
-		if len(self._page_render_queue) == 0:
-			self._render_queue_lock.release()
-			return
-		data = self._page_render_queue.pop()
-		self._render_queue_lock.release()
-
-		page_number = data[0]
-		scale = data[1]
-		x_offset = data[2]
-		y_offset = data[3]
+	def _render_page(self, data):
+		page_number, scale, x_offset, y_offset = data
 
 		page = self.document.get_page(page_number)
 		width, height = page.get_size()
@@ -656,21 +686,27 @@ class Model(GObject.GObject):
 			surface = cairo.ImageSurface(cairo.FORMAT_RGB24, int(width + 1), int(height + 1))
 		except MemoryError:
 			sys.stderr.write("Cannot render page at this zoom, not enough memory!\n")
-			return
-			pass
+			return None
+
 		cr = cairo.Context(surface)
 		cr.set_source_rgba(1, 1, 1)
 		cr.paint()
 
 		cr.scale(scale, scale)
 		cr.translate(-x_offset, -y_offset)
-		self._document_lock.acquire()
 		page.render_for_printing(cr)
-		self._document_lock.release()
 
-		self._render_queue_lock.acquire()
-		self._rendered_pages[page_number] = (surface, scale, x_offset, y_offset, False)
-		self._render_queue_lock.release()
+		return surface
 
-		GObject.idle_add(self._emit_page_rendered, page_number)
+	def shutdown(self):
+		# Let the subprocesses quit.
+		if os.getpid() != self._page_render_process.pid:
+			self._box_render_pipe_p.send('quit')
+			self._page_render_pipe_p.send('quit')
+
+			self._box_render_process.join(2)
+			self._page_render_process.join(2)
+
+			self._box_render_process.terminate()
+			self._page_render_process.terminate()
 

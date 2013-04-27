@@ -148,7 +148,7 @@ class MainWindow(object):
 			dialog.get_content_area().add(pbar)
 			pbar.show()
 
-			self._model.emit_pdf(filename, self.export_pdf_pb_updater, dialog, pbar)
+			self._model.main_iter_emit_pdf(filename, self.export_pdf_pb_updater, dialog, pbar)
 
 			# Just return, the dialog will be destroyed by the pb updater
 			dialog.show()
@@ -181,7 +181,7 @@ class MainWindow(object):
 			dialog.get_content_area().add(pbar)
 			pbar.show()
 
-			self._model.emit_tif(filename, self.export_pdf_pb_updater, dialog, pbar)
+			self._model.main_iter_emit_tif(filename, self.export_pdf_pb_updater, dialog, pbar)
 
 			# Just return, the dialog will be destroyed by the pb updater
 			dialog.show()
@@ -289,6 +289,8 @@ class MainWindow(object):
 		dialog.add_buttons(Gtk.STOCK_CLOSE, Gtk.ResponseType.OK, Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
 		result = dialog.run()
 		if result == Gtk.ResponseType.OK:
+			if self._model is not None:
+				self._model.shutdown()
 			Gtk.main_quit()
 		else:
 			dialog.destroy()
