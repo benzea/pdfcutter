@@ -65,7 +65,7 @@ class MainWindow(object):
 		self.update_ui()
 		self._window.show_all()
 
-		GObject.timeout_add(300000, self.autosave)
+		GObject.timeout_add(30000, self.autosave)
 
 	def remove_status(self, context_id, message_id):
 		statusbar = self._builder.get_object("statusbar")
