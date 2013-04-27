@@ -529,6 +529,9 @@ class Model(GObject.GObject):
 		self.header_text = f.readline()[:-1]
 		for line in f.readlines():
 			data = line.split()
+			if len(data) not in [8, 9]:
+				print "Cannot handle line \'%s\'. Ignoring" % line.strip('\n')
+				continue
 			b = Box()
 			b.sx = float(data[0])
 			b.sy = float(data[1])

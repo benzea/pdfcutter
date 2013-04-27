@@ -254,7 +254,10 @@ class MainWindow(object):
 		result = fc.run()
 		if result == Gtk.ResponseType.OK:
 			filename = fc.get_filename()
-			self.load_file(filename)
+			try:
+				self.load_file(filename)
+			except IOError:
+				pass
 		fc.destroy()
 
 	def load_file(self, filename):
