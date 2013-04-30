@@ -653,13 +653,14 @@ class Model(GObject.GObject):
 		return False
 
 	def _render_box(self, data):
-		scale, page_number, x, y, width, height, scale, x_offset, y_offset = data
+		scale, page_number, x, y, width, height, dscale, x_offset, y_offset = data
 
 		page = self.document.get_page(page_number)
 		scaled_width = width + 1
 		scaled_height = height + 1
 		scaled_width = scaled_width * scale
 		scaled_height = scaled_height * scale
+
 		try:
 			surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(math.ceil(scaled_width)), int(math.ceil(scaled_height)))
 		except MemoryError:
