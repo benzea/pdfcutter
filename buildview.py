@@ -339,7 +339,6 @@ class Box(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 
 			cr.move_to(0, 0)
 			cr.show_text("Loading ...")
-			cr.restore()
 		else:
 			image = result[0]
 			iscale = result[1]
@@ -351,7 +350,8 @@ class Box(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 			cr.scale(1 / iscale * self._box.dscale, 1 / iscale * self._box.dscale)
 			cr.set_source_surface(image)
 			cr.fill()
-			cr.restore()
+
+		cr.restore()
 
 		if self.get_canvas().outlines:
 			cr.save()
