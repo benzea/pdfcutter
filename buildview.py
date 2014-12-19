@@ -399,6 +399,11 @@ class Page(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 			return
 
 		cr.save()
+
+		cr.set_source_rgb(1.0, 1.0, 1.0)
+		cr.rectangle(self.x, self.y, self.width, self.height)
+		cr.fill()
+
 		cr.set_source_rgb(0.3, 0.3, 0.3)
 		cr.set_fill_rule(cairo.FILL_RULE_EVEN_ODD)
 		cr.rectangle(self.x-1, self.y-1, self.width+2, self.height+2)
