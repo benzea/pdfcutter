@@ -581,9 +581,10 @@ class Model(GObject.GObject):
 			if obj == 'quit':
 				return
 
+			data = self._pack_surface(self._render_box(obj))
 			# Wake parent first (in case data does not fit into buffer)
 			self._box_render_process.wake_parent()
-			self._box_render_pipe_c.send(self._pack_surface(self._render_box(obj)))
+			self._box_render_pipe_c.send(data)
 
 	def _page_render_proc(self):
 		# This function runs in a separate process!
@@ -593,9 +594,10 @@ class Model(GObject.GObject):
 			if obj == 'quit':
 				return
 
+			data = self._pack_surface(self._render_page(obj))
 			# Wake parent first (in case data does not fit into buffer)
 			self._page_render_process.wake_parent()
-			self._page_render_pipe_c.send(self._pack_surface(self._render_page(obj)))
+			self._page_render_pipe_c.send(data)
 
 	def _recreate_surface(self, surface):
 		f, width, height, stride, data = surface
