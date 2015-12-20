@@ -13,7 +13,7 @@ class GProcess(multiprocessing.Process):
         multiprocessing.Process.start(self, *args, **kwargs)
 
         # And register the pipe in the mainloop of the main process
-        GLib.io_add_watch(self.pipe_r, GLib.IO_IN | GLib.IO_PRI, self._child_event)
+        GLib.io_add_watch(self.pipe_r, GLib.IO_IN, self._child_event)
 
     def __init__(self, *args, **kwargs):
         if 'childcb' in kwargs:
