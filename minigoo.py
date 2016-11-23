@@ -121,11 +121,9 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
         return (self.bounds.y2 - self.bounds.y1) * self._scale
     height = property(get_height)
 
-
-    def do_size_allocate(self, allocation):
-        # WTF? Why does this happen?
-        if allocation.x < 0 or allocation.y < 0:
-            GObject.idle_add(self.queue_resize)
+    def update_adjustments(self, allocation):
+        if allocation is None:
+            allocation = self.get_allocation()
 
         if self.hadj:
             self.hadj.props.page_size = min(self.width, allocation.width)
@@ -140,6 +138,13 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
             self.vadj.props.page_increment = allocation.height * 0.9
             self.vadj.props.step_increment = allocation.height * 0.1
 
+
+    def do_size_allocate(self, allocation):
+        # WTF? Why does this happen?
+        if allocation.x < 0 or allocation.y < 0:
+            GObject.idle_add(self.queue_resize)
+
+        self.update_adjustments(allocation)
         Gtk.DrawingArea.do_size_allocate(self, allocation)
 
     def do_draw(self, cr):
@@ -160,13 +165,24 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
             c.do_paint(cr, bounds, self._scale)
             cr.restore()
 
+    def viewpixel_to_coordinate(self, x, y):
+        x = self.bounds.x1 + (x + self.hadj.props.value) / self._scale
+        y = self.bounds.y1 + (y + self.vadj.props.value) / self._scale
+        return x, y
+
     def convert_from_pixels(self, x, y):
-        x = (x + self.hadj.props.value) / self._scale
-        y = (y + self.vadj.props.value) / self._scale
+        # This is relative to the window for some reason (yeah, goocanvas API)
+        x = x / self._scale
+        y = y / self._scale
         return x, y
 
     def scroll_to(self, x, y):
-        pass
+        x = (x - self.bounds.x1) * self._scale
+        y = (y - self.bounds.y1) * self._scale
+
+        self.hadj.props.value = x
+        self.vadj.props.value = y
+
 
     def _adjustment_changed_cb(self, adjustment):
         self.queue_draw()
@@ -221,6 +237,7 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
 
     def set_scale(self, value):
         self._scale = value
+        self.update_adjustments(None)
         self.queue_resize()
 
     def get_scale(self):
@@ -270,7 +287,7 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
 
     def do_button_press_event(self, event):
         Gtk.Widget.grab_focus(self)
-        x, y = self.convert_from_pixels(event.x, event.y)
+        x, y = self.viewpixel_to_coordinate(event.x, event.y)
 
         sub = Event()
         sub.x = x
@@ -291,7 +308,7 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
 
 
     def do_button_release_event(self, event):
-        x, y = self.convert_from_pixels(event.x, event.y)
+        x, y = self.viewpixel_to_coordinate(event.x, event.y)
 
         sub = Event()
         sub.x = x
@@ -316,7 +333,7 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
         return False
 
     def do_motion_notify_event(self, event):
-        x, y = self.convert_from_pixels(event.x, event.y)
+        x, y = self.viewpixel_to_coordinate(event.x, event.y)
 
         sub = Event()
         sub.x = x
