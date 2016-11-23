@@ -333,6 +333,8 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
                 handled = c.do_motion_notify_event(None, sub)
                 if handled:
                     return True
+                # Do not propagate further
+                return False
 
         return False
 
