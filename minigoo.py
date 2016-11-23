@@ -1,4 +1,5 @@
 
+import math
 from gi.repository import Gtk
 from gi.repository import Gdk
 from gi.repository import GObject
@@ -170,6 +171,11 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
         y = self.bounds.y1 + (y + self.vadj.props.value) / self._scale
         return x, y
 
+    def coordinate_to_viewpixel(self, x, y):
+        x = (x - self.bounds.x1) * self.scale - self.hadj.props.value
+        y = (y - self.bounds.y1) * self.scale - self.vadj.props.value
+        return x, y
+
     def convert_from_pixels(self, x, y):
         # This is relative to the window for some reason (yeah, goocanvas API)
         x = x / self._scale
@@ -264,7 +270,13 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
         self.queue_resize()
 
     def request_redraw(self, bounds):
-        self.queue_draw()
+        x, y = self.coordinate_to_viewpixel(bounds.x1, bounds.y1)
+        width, height = self.coordinate_to_viewpixel(bounds.x2, bounds.y2)
+        x = int(x)
+        y = int(y)
+        width = int(math.ceil(width) - x)
+        height = int(math.ceil(height) - y)
+        self.queue_draw_area(x, y, width, height)
 
     def grab_focus(self, item):
         if self._focused is not None:

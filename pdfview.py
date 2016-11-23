@@ -210,6 +210,11 @@ class Page(GooCanvas.CanvasItemSimple, GooCanvas.CanvasItem):
 		self.width, self.height = model.document.get_page(page).get_size()
 		self._drag_active = False
 
+		self.bounds.x1 = self.x
+		self.bounds.y1 = self.y
+		self.bounds.x2 = self.x + self.width
+		self.bounds.y2 = self.y + self.height
+
 	def do_simple_is_item_at(self, x, y, cr, is_pointer_event):
 		if self.x <= x and self.x + self.width >= x and \
 		   self.y <= y and self.y + self.height >= y:
