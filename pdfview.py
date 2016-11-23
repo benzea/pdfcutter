@@ -20,7 +20,7 @@
 import cairo
 from gi.repository import Gtk
 from gi.repository import Gdk
-from gi.repository import GooCanvas
+import minigoo as GooCanvas
 from gi.repository import GObject
 import model
 import math
